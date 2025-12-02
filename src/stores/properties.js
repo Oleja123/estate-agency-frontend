@@ -9,7 +9,7 @@ export const usePropertiesStore = defineStore('properties', () => {
   const loading = ref(false)
   const error = ref(null)
   const filters = ref({
-    limit: 12,
+    limit: 3,
     offset: 0,
     type_id: null,
     transaction_type: null,

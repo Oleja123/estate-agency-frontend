@@ -28,7 +28,7 @@ const localFilters = ref({
 })
 
 const transactionTypes = ['sale', 'rent']
-const propertyStatuses = ['available', 'sold', 'rented', 'reserved']
+const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
 
 onMounted(async () => {
   await propertyTypesStore.fetchPropertyTypes({ limit: 100 })
@@ -84,10 +84,10 @@ function getPropertyTypeName(typeId) {
 
 function getStatusClass(status) {
   switch (status) {
-    case 'available': return 'status-available'
+    case 'active': return 'status-available'
     case 'sold': return 'status-sold'
     case 'rented': return 'status-rented'
-    case 'reserved': return 'status-reserved'
+    case 'inactive': return 'status-reserved'
     default: return ''
   }
 }

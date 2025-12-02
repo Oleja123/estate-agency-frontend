@@ -8,7 +8,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const form = ref({
-  email: '',
+  login: '',
   password: '',
   confirmPassword: '',
   first_name: '',
@@ -19,21 +19,18 @@ const form = ref({
 const errors = ref({})
 const showError = ref(false)
 const showSuccess = ref(false)
+// if backend returns field errors, authStore.fieldErrors will be used
 
 function validateForm() {
   errors.value = {}
   
-  if (!form.value.email) {
-    errors.value.email = 'Email is required'
-  } else if (!/\S+@\S+\.\S+/.test(form.value.email)) {
-    errors.value.email = 'Invalid email format'
+  if (!form.value.login) {
+    errors.value.login = 'Login is required'
   }
   
-  if (!form.value.password) {
-    errors.value.password = 'Password is required'
-  } else if (form.value.password.length < 6) {
-    errors.value.password = 'Password must be at least 6 characters'
-  }
+    if (!form.value.password) {
+      errors.value.password = 'Password is required'
+    }
   
   if (form.value.password !== form.value.confirmPassword) {
     errors.value.confirmPassword = 'Passwords do not match'
@@ -45,6 +42,15 @@ function validateForm() {
   
   if (!form.value.last_name) {
     errors.value.last_name = 'Last name is required'
+  }
+
+  // Phone number is optional, but if provided must be valid
+  if (form.value.phone_number) {
+    const cleaned = String(form.value.phone_number).replace(/[^0-9+]/g, '')
+    const phoneRegex = /^\+?\d{7,15}$/
+    if (!phoneRegex.test(cleaned)) {
+      errors.value.phone_number = 'Invalid phone number format'
+    }
   }
   
   return Object.keys(errors.value).length === 0
@@ -64,7 +70,13 @@ async function handleSubmit() {
       router.push('/login')
     }, 2000)
   } catch (error) {
-    showError.value = true
+    // populate per-field errors if provided by backend
+    if (authStore.fieldErrors && Object.keys(authStore.fieldErrors).length) {
+      errors.value = { ...errors.value, ...authStore.fieldErrors }
+    }
+
+    // show global error only when API provided a top-level message
+    showError.value = !!authStore.error
   }
 }
 
@@ -126,16 +138,16 @@ function dismissError() {
         </div>
 
         <div class="form-group">
-          <label for="email" class="form-label">Email</label>
+          <label for="login" class="form-label">Login</label>
           <input
-            id="email"
-            v-model="form.email"
-            type="email"
+            id="login"
+            v-model="form.login"
+            type="text"
             class="form-input"
-            :class="{ 'input-error': errors.email }"
-            placeholder="john@example.com"
+            :class="{ 'input-error': errors.login }"
+            placeholder="your login"
           />
-          <span v-if="errors.email" class="error-text">{{ errors.email }}</span>
+          <span v-if="errors.login" class="error-text">{{ errors.login }}</span>
         </div>
 
         <div class="form-group">
@@ -145,8 +157,10 @@ function dismissError() {
             v-model="form.phone_number"
             type="tel"
             class="form-input"
+            :class="{ 'input-error': errors.phone_number }"
             placeholder="+1234567890"
           />
+          <span v-if="errors.phone_number" class="error-text">{{ errors.phone_number }}</span>
         </div>
 
         <div class="form-group">
@@ -157,7 +171,7 @@ function dismissError() {
             type="password"
             class="form-input"
             :class="{ 'input-error': errors.password }"
-            placeholder="At least 6 characters"
+              placeholder="Enter password"
           />
           <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
         </div>

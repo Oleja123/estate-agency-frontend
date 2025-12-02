@@ -16,7 +16,7 @@ const successMessage = ref('')
 const errorMessage = ref('')
 
 const profileForm = ref({
-  email: '',
+  login: '',
   first_name: '',
   last_name: '',
   phone_number: ''
@@ -30,6 +30,8 @@ const passwordForm = ref({
 
 const profileErrors = ref({})
 const passwordErrors = ref({})
+// will hold server-side field errors returned by usersStore
+const serverProfileErrors = ref({})
 
 const user = computed(() => authStore.user)
 const currentUserId = computed(() => authStore.currentUserId)
@@ -37,7 +39,7 @@ const currentUserId = computed(() => authStore.currentUserId)
 onMounted(() => {
   if (user.value) {
     profileForm.value = {
-      email: user.value.email || '',
+      login: user.value.login || '',
       first_name: user.value.first_name || '',
       last_name: user.value.last_name || '',
       phone_number: user.value.phone_number || ''
@@ -47,21 +49,28 @@ onMounted(() => {
 
 function validateProfileForm() {
   profileErrors.value = {}
-  
-  if (!profileForm.value.email) {
-    profileErrors.value.email = 'Email is required'
-  } else if (!/\S+@\S+\.\S+/.test(profileForm.value.email)) {
-    profileErrors.value.email = 'Invalid email format'
+
+  if (!profileForm.value.login) {
+    profileErrors.value.login = 'Login is required'
   }
-  
+
   if (!profileForm.value.first_name) {
     profileErrors.value.first_name = 'First name is required'
   }
-  
+
   if (!profileForm.value.last_name) {
     profileErrors.value.last_name = 'Last name is required'
   }
-  
+
+  // Phone number validation: optional, but if provided must be digits (7-15) with optional leading +
+  if (profileForm.value.phone_number) {
+    const cleaned = String(profileForm.value.phone_number).replace(/[^0-9+]/g, '')
+    const phoneRegex = /^\+?\d{7,15}$/
+    if (!phoneRegex.test(cleaned)) {
+      profileErrors.value.phone_number = 'Invalid phone number format'
+    }
+  }
+
   return Object.keys(profileErrors.value).length === 0
 }
 
@@ -74,8 +83,6 @@ function validatePasswordForm() {
   
   if (!passwordForm.value.new_password) {
     passwordErrors.value.new_password = 'New password is required'
-  } else if (passwordForm.value.new_password.length < 6) {
-    passwordErrors.value.new_password = 'Password must be at least 6 characters'
   }
   
   if (passwordForm.value.new_password !== passwordForm.value.confirm_password) {
@@ -97,7 +104,15 @@ async function handleProfileSubmit() {
     await authStore.updateCurrentUser()
     successMessage.value = 'Profile updated successfully!'
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Failed to update profile'
+    // prefer store-provided field errors
+    if (usersStore.fieldErrors && Object.keys(usersStore.fieldErrors).length) {
+      serverProfileErrors.value = usersStore.fieldErrors
+      // map server errors into profileErrors so they show next to inputs
+      profileErrors.value = { ...profileErrors.value, ...serverProfileErrors.value }
+      errorMessage.value = usersStore.error || 'Failed to update profile'
+    } else {
+      errorMessage.value = error.response?.data?.message || 'Failed to update profile'
+    }
   } finally {
     loading.value = false
   }
@@ -158,7 +173,7 @@ function formatDate(dateString) {
           <h2 class="profile-name" v-if="user">
             {{ user.first_name }} {{ user.last_name }}
           </h2>
-          <p class="profile-email" v-if="user">{{ user.email }}</p>
+          <p class="profile-login" v-if="user">{{ user.login }}</p>
           <div class="profile-meta" v-if="user">
             <span :class="['role-badge', `role-${user.role}`]">
               {{ user.role }}
@@ -237,16 +252,16 @@ function formatDate(dateString) {
                 </div>
 
                 <div class="form-group">
-                  <label for="email" class="form-label">Email</label>
+                  <label for="login" class="form-label">Login</label>
                   <input
-                    id="email"
-                    v-model="profileForm.email"
-                    type="email"
+                    id="login"
+                    v-model="profileForm.login"
+                    type="text"
                     class="form-input"
-                    :class="{ 'input-error': profileErrors.email }"
+                    :class="{ 'input-error': profileErrors.login }"
                   />
-                  <span v-if="profileErrors.email" class="error-text">
-                    {{ profileErrors.email }}
+                  <span v-if="profileErrors.login" class="error-text">
+                    {{ profileErrors.login }}
                   </span>
                 </div>
 
@@ -257,8 +272,12 @@ function formatDate(dateString) {
                     v-model="profileForm.phone_number"
                     type="tel"
                     class="form-input"
+                    :class="{ 'input-error': profileErrors.phone_number }"
                     placeholder="+1234567890"
                   />
+                  <span v-if="profileErrors.phone_number" class="error-text">
+                    {{ profileErrors.phone_number }}
+                  </span>
                 </div>
 
                 <button type="submit" class="btn btn-primary">
@@ -398,7 +417,7 @@ function formatDate(dateString) {
   margin-bottom: 0.25rem;
 }
 
-.profile-email {
+.profile-login {
   color: #6b7280;
   font-size: 0.875rem;
   margin-bottom: 1rem;

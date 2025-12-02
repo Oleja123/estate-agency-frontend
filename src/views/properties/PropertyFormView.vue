@@ -23,7 +23,7 @@ const form = ref({
   area: '',
   property_address: '',
   city: '',
-  property_status: 'available'
+  property_status: 'active'
 })
 
 const errors = ref({})
@@ -32,7 +32,7 @@ const success = ref(false)
 const imageFiles = ref([])
 
 const transactionTypes = ['sale', 'rent']
-const propertyStatuses = ['available', 'sold', 'rented', 'reserved']
+const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
 
 onMounted(async () => {
   await propertyTypesStore.fetchPropertyTypes({ limit: 100 })
@@ -51,7 +51,7 @@ onMounted(async () => {
         area: p.area || '',
         property_address: p.property_address || '',
         city: p.city || '',
-        property_status: p.property_status || 'available'
+        property_status: p.property_status || 'active'
       }
     }
   }

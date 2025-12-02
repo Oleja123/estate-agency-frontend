@@ -10,7 +10,7 @@ import ModalDialog from '../../components/common/ModalDialog.vue'
 
 const usersStore = useUsersStore()
 
-const limit = ref(10)
+const limit = ref(3)
 const offset = ref(0)
 const search = ref('')
 const roleFilter = ref('')
@@ -18,8 +18,12 @@ const activeFilter = ref('')
 
 const showDeleteDialog = ref(false)
 const showRoleDialog = ref(false)
+const showPasswordDialog = ref(false)
 const selectedUser = ref(null)
 const newRole = ref('')
+const newPassword = ref('')
+const confirmNewPassword = ref('')
+const passwordErrors = ref({})
 
 const roles = ['client', 'admin']
 
@@ -33,24 +37,54 @@ async function loadUsers() {
     offset: offset.value
   }
   
+  // include filters explicitly (empty string indicates cleared filter)
   if (search.value) {
     params.search = search.value
   }
+
+  // always include role and is_active keys so store can detect clearing
+  params.role = roleFilter.value
+  params.is_active = activeFilter.value === '' ? '' : (activeFilter.value === 'true')
   
-  if (roleFilter.value) {
-    params.role = roleFilter.value
+  console.log('[UsersView] loadUsers -> built params:', params)
+  try {
+    await usersStore.fetchUsers(params)
+    console.log('[UsersView] loadUsers -> usersStore.users.length =', usersStore.users.length)
+  } catch (err) {
+    console.error('[UsersView] loadUsers -> fetchUsers failed:', err)
+    throw err
   }
-  
-  if (activeFilter.value !== '') {
-    params.is_active = activeFilter.value === 'true'
-  }
-  
-  await usersStore.fetchUsers(params)
 }
 
 function handleSearch() {
   offset.value = 0
   loadUsers()
+}
+
+async function resetFilters() {
+  search.value = ''
+  roleFilter.value = ''
+  activeFilter.value = ''
+  offset.value = 0
+
+  // clear UI immediately
+  console.log('[UsersView] resetFilters invoked')
+  usersStore.clearError()
+  // clear array in-place to keep reactivity
+  if (Array.isArray(usersStore.users)) {
+    usersStore.users.splice(0)
+  } else {
+    usersStore.users = []
+  }
+
+  try {
+    // ensure stored lastParams don't carry previous search/role filters
+    if (usersStore.resetLastParams) usersStore.resetLastParams({ limit: limit.value, offset: offset.value })
+    await loadUsers()
+    console.log('[UsersView] resetFilters -> reload done, users.length =', usersStore.users.length)
+  } catch (err) {
+    console.error('[UsersView] resetFilters failed to reload users:', err)
+  }
 }
 
 function handlePageChange(page) {
@@ -70,6 +104,37 @@ function openRoleDialog(user) {
   selectedUser.value = user
   newRole.value = user.role
   showRoleDialog.value = true
+}
+
+function openPasswordDialog(user) {
+  selectedUser.value = user
+  newPassword.value = ''
+  confirmNewPassword.value = ''
+  passwordErrors.value = {}
+  showPasswordDialog.value = true
+}
+
+async function handleChangePasswordAdmin() {
+  passwordErrors.value = {}
+  if (!newPassword.value) {
+    passwordErrors.value.newPassword = 'New password is required'
+  }
+  if (newPassword.value !== confirmNewPassword.value) {
+    passwordErrors.value.confirmNewPassword = 'Passwords do not match'
+  }
+  if (Object.keys(passwordErrors.value).length) return
+
+  try {
+    await usersStore.changeUserPasswordAdmin(selectedUser.value.id, newPassword.value)
+    showPasswordDialog.value = false
+    selectedUser.value = null
+  } catch (err) {
+    console.error('Failed to change user password:', err)
+    // if store has fieldErrors, surface them
+    if (usersStore.fieldErrors) {
+      passwordErrors.value = { ...passwordErrors.value, ...usersStore.fieldErrors }
+    }
+  }
 }
 
 async function handleChangeRole() {
@@ -122,7 +187,7 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
 
     <div class="filters-panel">
       <div class="filters-row">
-        <div class="search-group">
+          <div class="search-group">
           <input
             v-model="search"
             type="text"
@@ -131,6 +196,7 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
             @keyup.enter="handleSearch"
           />
           <button @click="handleSearch" class="btn btn-primary">Search</button>
+          <button @click="resetFilters" class="btn btn-outline">Reset</button>
         </div>
         
         <div class="filter-group">
@@ -173,7 +239,7 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
           <thead>
             <tr>
               <th>User</th>
-              <th>Email</th>
+              <th>Login</th>
               <th>Role</th>
               <th>Status</th>
               <th>Joined</th>
@@ -190,7 +256,7 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
                   </div>
                 </div>
               </td>
-              <td>{{ user.email }}</td>
+              <td>{{ user.login }}</td>
               <td>
                 <span :class="['role-badge', `role-${user.role}`]">
                   {{ user.role }}
@@ -209,6 +275,9 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
                   </RouterLink>
                   <button @click="openRoleDialog(user)" class="action-btn">
                     Role
+                  </button>
+                  <button @click="openPasswordDialog(user)" class="action-btn">
+                    Password
                   </button>
                   <button @click="toggleActive(user)" class="action-btn">
                     {{ user.is_active ? 'Deactivate' : 'Activate' }}
@@ -259,6 +328,32 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
       <template #footer>
         <button @click="showRoleDialog = false" class="btn btn-outline">Cancel</button>
         <button @click="handleChangeRole" class="btn btn-primary">Save</button>
+      </template>
+    </ModalDialog>
+
+    <ModalDialog
+      :show="showPasswordDialog"
+      title="Change User Password"
+      size="small"
+      @close="showPasswordDialog = false"
+    >
+      <div class="role-form">
+        <p>Change password for <strong>{{ selectedUser?.first_name }} {{ selectedUser?.last_name }}</strong></p>
+        <div class="form-group">
+          <label for="new_password" class="form-label">New Password</label>
+          <input id="new_password" v-model="newPassword" type="password" class="form-input" :class="{ 'input-error': passwordErrors.newPassword }" />
+          <span v-if="passwordErrors.newPassword" class="error-text">{{ passwordErrors.newPassword }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="confirm_new_password" class="form-label">Confirm New Password</label>
+          <input id="confirm_new_password" v-model="confirmNewPassword" type="password" class="form-input" :class="{ 'input-error': passwordErrors.confirmNewPassword }" />
+          <span v-if="passwordErrors.confirmNewPassword" class="error-text">{{ passwordErrors.confirmNewPassword }}</span>
+        </div>
+      </div>
+      <template #footer>
+        <button @click="showPasswordDialog = false" class="btn btn-outline">Cancel</button>
+        <button @click="handleChangePasswordAdmin" class="btn btn-primary">Save</button>
       </template>
     </ModalDialog>
   </div>

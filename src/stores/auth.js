@@ -8,17 +8,19 @@ export const useAuthStore = defineStore('auth', () => {
   const refreshToken = ref(localStorage.getItem('refresh_token') || null)
   const loading = ref(false)
   const error = ref(null)
+  const fieldErrors = ref({})
 
   const isAuthenticated = computed(() => !!accessToken.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
   const currentUserId = computed(() => user.value?.id)
 
-  async function login(email, password) {
+  async function login(login, password) {
     loading.value = true
     error.value = null
+    fieldErrors.value = {}
 
     try {
-      const response = await authApi.login(email, password)
+      const response = await authApi.login(login, password)
       const data = response.data
 
       user.value = data.user
@@ -31,7 +33,10 @@ export const useAuthStore = defineStore('auth', () => {
 
       return data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Login failed'
+      // parse backend error into user-friendly message and field-specific errors
+      const parsed = parseApiError(err)
+      error.value = parsed.message || 'Login failed'
+      fieldErrors.value = parsed.fields || {}
       throw err
     } finally {
       loading.value = false
@@ -41,12 +46,15 @@ export const useAuthStore = defineStore('auth', () => {
   async function register(userData) {
     loading.value = true
     error.value = null
+    fieldErrors.value = {}
 
     try {
       const response = await authApi.register(userData)
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Registration failed'
+      const parsed = parseApiError(err)
+      error.value = parsed.message || 'Registration failed'
+      fieldErrors.value = parsed.fields || {}
       throw err
     } finally {
       loading.value = false
@@ -94,6 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null
     refreshToken.value = null
     error.value = null
+    fieldErrors.value = {}
 
     localStorage.removeItem('user')
     localStorage.removeItem('access_token')
@@ -102,6 +111,67 @@ export const useAuthStore = defineStore('auth', () => {
 
   function clearError() {
     error.value = null
+    fieldErrors.value = {}
+  }
+
+  function parseApiError(err) {
+    const data = err.response?.data
+    const status = err.response?.status
+    let message = err.message || null
+    const fields = {}
+
+    // Map status codes to user-friendly messages
+    if (status === 401) {
+      // Unauthorized — typically bad credentials
+      message = data?.message || 'Incorrect login or password'
+      if (!data?.errors && !data?.login && !data?.password) {
+        // provide a helpful field error hint
+        fields.password = 'Incorrect password or login'
+      }
+    } else if (status === 404) {
+      // Not found — user/resource missing
+      message = data?.message || 'User not found'
+      if (!data?.errors) {
+        fields.login = 'User with this login not found'
+      }
+    } else if (status === 500) {
+      message = data?.message || 'Server error, please try again later'
+    } else if (status === 409) {
+      // Conflict — typically resource already exists (e.g. login taken)
+      message = data?.message || 'User with this login already exists'
+      // If API didn't provide structured errors, provide a helpful hint for the login field
+      if (!data?.errors) {
+        fields.login = data?.field || 'User with this login already exists'
+      }
+    } else if (status === 400) {
+      // Bad request — likely validation errors
+      message = data?.message || 'Validation failed'
+    } else {
+      // Fallback: prefer API-provided message or detail
+      if (!data) return { message: message || null, fields: null }
+      if (typeof data === 'string') {
+        message = data
+      } else if (data.message) {
+        message = data.message
+      } else if (data.detail) {
+        message = data.detail
+      }
+    }
+
+    // Extract field errors when present (API patterns: { errors: {...} } or { field: [...] })
+    const errorsObj = data?.errors || data
+    if (errorsObj && typeof errorsObj === 'object') {
+      for (const [k, v] of Object.entries(errorsObj)) {
+        const outKey = k === 'email' ? 'login' : k
+        if (Array.isArray(v)) {
+          fields[outKey] = v.join(', ')
+        } else if (typeof v === 'string') {
+          fields[outKey] = v
+        }
+      }
+    }
+
+    return { message, fields: Object.keys(fields).length ? fields : null }
   }
 
   return {
@@ -110,6 +180,7 @@ export const useAuthStore = defineStore('auth', () => {
     refreshToken,
     loading,
     error,
+    fieldErrors,
     isAuthenticated,
     isAdmin,
     currentUserId,

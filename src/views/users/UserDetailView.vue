@@ -88,7 +88,7 @@ async function toggleActive() {
           <div class="profile-avatar">👤</div>
           <div class="profile-info">
             <h1 class="profile-name">{{ user.first_name }} {{ user.last_name }}</h1>
-            <p class="profile-email">{{ user.email }}</p>
+              <p class="profile-login">{{ user.login }}</p>
             <div class="profile-badges">
               <span :class="['role-badge', `role-${user.role}`]">
                 {{ user.role }}
@@ -104,8 +104,8 @@ async function toggleActive() {
           <div class="detail-card">
             <h3>Contact Information</h3>
             <div class="detail-row">
-              <span class="detail-label">Email</span>
-              <span class="detail-value">{{ user.email }}</span>
+              <span class="detail-label">Login</span>
+              <span class="detail-value">{{ user.login }}</span>
             </div>
             <div v-if="user.phone_number" class="detail-row">
               <span class="detail-label">Phone</span>
@@ -219,11 +219,10 @@ async function toggleActive() {
   margin-bottom: 0.25rem;
 }
 
-.profile-email {
+.profile-login {
   opacity: 0.9;
   margin-bottom: 0.75rem;
 }
-
 .profile-badges {
   display: flex;
   gap: 0.5rem;

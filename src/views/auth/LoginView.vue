@@ -9,7 +9,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const form = ref({
-  email: '',
+  login: '',
   password: ''
 })
 
@@ -18,17 +18,15 @@ const showError = ref(false)
 
 function validateForm() {
   errors.value = {}
-  
-  if (!form.value.email) {
-    errors.value.email = 'Email is required'
-  } else if (!/\S+@\S+\.\S+/.test(form.value.email)) {
-    errors.value.email = 'Invalid email format'
+
+  if (!form.value.login) {
+    errors.value.login = 'Login is required'
   }
-  
+
   if (!form.value.password) {
     errors.value.password = 'Password is required'
   }
-  
+
   return Object.keys(errors.value).length === 0
 }
 
@@ -38,11 +36,16 @@ async function handleSubmit() {
   showError.value = false
   
   try {
-    await authStore.login(form.value.email, form.value.password)
+    await authStore.login(form.value.login, form.value.password)
     const redirect = route.query.redirect || '/'
     router.push(redirect)
   } catch (error) {
-    showError.value = true
+    // populate per-field errors from store if available
+    if (authStore.fieldErrors && Object.keys(authStore.fieldErrors).length) {
+      errors.value = { ...errors.value, ...authStore.fieldErrors }
+    }
+    // always show global error if available
+    showError.value = !!authStore.error || Object.keys(errors.value).length === 0
   }
 }
 
@@ -69,16 +72,16 @@ function dismissError() {
 
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-group">
-          <label for="email" class="form-label">Email</label>
+          <label for="login" class="form-label">Login</label>
           <input
-            id="email"
-            v-model="form.email"
-            type="email"
+            id="login"
+            v-model="form.login"
+            type="text"
             class="form-input"
-            :class="{ 'input-error': errors.email }"
-            placeholder="Enter your email"
+            :class="{ 'input-error': errors.login }"
+            placeholder="Enter your login"
           />
-          <span v-if="errors.email" class="error-text">{{ errors.email }}</span>
+          <span v-if="errors.login" class="error-text">{{ errors.login }}</span>
         </div>
 
         <div class="form-group">

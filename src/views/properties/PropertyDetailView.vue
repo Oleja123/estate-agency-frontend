@@ -49,10 +49,10 @@ function getPropertyTypeName(typeId) {
 
 function getStatusClass(status) {
   switch (status) {
-    case 'available': return 'status-available'
+    case 'active': return 'status-available'
     case 'sold': return 'status-sold'
     case 'rented': return 'status-rented'
-    case 'reserved': return 'status-reserved'
+    case 'inactive': return 'status-reserved'
     default: return ''
   }
 }
