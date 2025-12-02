@@ -25,7 +25,11 @@ const localFilters = ref({
   min_price: '',
   max_price: '',
   min_area: '',
-  max_area: ''
+  max_area: '',
+  // location filters (empty string => not used)
+  latitude: '',
+  longitude: '',
+  radius_km: ''
 })
 
 const transactionTypes = ['sale', 'rent']
@@ -91,13 +95,48 @@ function applyFilters() {
     return
   }
 
+  // location / radius validation
+  const latRaw = localFilters.value.latitude === '' || localFilters.value.latitude === null ? null : localFilters.value.latitude
+  const lngRaw = localFilters.value.longitude === '' || localFilters.value.longitude === null ? null : localFilters.value.longitude
+  const radRaw = localFilters.value.radius_km === '' || localFilters.value.radius_km === null ? null : localFilters.value.radius_km
+
+  const latNum = latRaw === null ? null : Number(latRaw)
+  const lngNum = lngRaw === null ? null : Number(lngRaw)
+  const radNum = radRaw === null ? null : Number(radRaw)
+
+  if (radNum !== null && (!Number.isFinite(radNum) || radNum < 0)) {
+    propertiesStore.error = 'Радиус должен быть положительным числом.'
+    return
+  }
+
+  if ((latNum !== null && (!Number.isFinite(latNum) || latNum < -90 || latNum > 90)) || (lngNum !== null && (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180))) {
+    propertiesStore.error = 'Координаты некорректны.'
+    return
+  }
+
+  // if user provided radius but not coords -> error
+  if (radNum !== null && (latNum === null || lngNum === null)) {
+    propertiesStore.error = 'Укажите координаты (нажмите "Use my location" или введите вручную), чтобы фильтровать по расстоянию.'
+    return
+  }
+
   const filters = {}
   Object.entries(localFilters.value).forEach(([key, value]) => {
     // include empty-string values so selecting "All" clears the filter
     if (value !== null && value !== undefined) {
+      // skip raw location strings -- we'll add parsed numeric values below
+      if (['latitude', 'longitude', 'radius_km'].includes(key)) return
       filters[key] = value
     }
   })
+
+  // attach numeric location filters when present
+  if (latNum !== null && lngNum !== null) {
+    filters.latitude = latNum
+    filters.longitude = lngNum
+    filters.radius_km = radNum !== null ? radNum : 5 // default 5 km if not provided
+  }
+
   propertiesStore.setFilters({ ...filters, offset: 0 })
 }
 
@@ -111,9 +150,39 @@ function resetFilters() {
     min_price: '',
     max_price: '',
     min_area: '',
-    max_area: ''
+    max_area: '',
+    latitude: '',
+    longitude: '',
+    radius_km: ''
   }
   propertiesStore.resetFilters()
+}
+
+function requestLocation() {
+  propertiesStore.clearError()
+  if (!navigator.geolocation) {
+    propertiesStore.error = 'Geolocation is not supported by your browser.'
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords
+      // store as strings to keep binding with inputs
+      localFilters.value.latitude = String(Number(latitude).toFixed(6))
+      localFilters.value.longitude = String(Number(longitude).toFixed(6))
+    },
+    (err) => {
+      propertiesStore.error = err.message || 'Failed to get current location.'
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  )
+}
+
+function clearLocation() {
+  localFilters.value.latitude = ''
+  localFilters.value.longitude = ''
+  localFilters.value.radius_km = ''
 }
 
 function handlePageChange(page) {
@@ -209,6 +278,8 @@ function getStatusClass(status) {
             />
           </div>
 
+          <!-- location filter moved below grid -->
+
           <div class="filter-group">
             <label class="filter-label">Status</label>
             <select v-model="localFilters.property_status" class="filter-input">
@@ -257,6 +328,25 @@ function getStatusClass(status) {
               class="filter-input"
               placeholder="Max area..."
             />
+          </div>
+        </div>
+
+        <!-- separate full-width location filter row -->
+        <div class="filters-location-row">
+          <div class="filter-group full-width">
+            <label class="filter-label">Use My Location</label>
+            <div style="display:flex;gap:.5rem;align-items:center;">
+              <button type="button" class="btn btn-outline" @click="requestLocation">Use my location</button>
+              <button type="button" class="btn btn-outline" @click="clearLocation">Clear</button>
+            </div>
+            <div style="margin-top:.5rem;display:flex;gap:.5rem;">
+              <input v-model="localFilters.latitude" type="text" class="filter-input" placeholder="Lat" />
+              <input v-model="localFilters.longitude" type="text" class="filter-input" placeholder="Lng" />
+            </div>
+            <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
+              <input v-model="localFilters.radius_km" type="number" min="0" step="1" class="filter-input" placeholder="Radius (km)" />
+              <small style="color:#6b7280">Set radius to filter properties within distance</small>
+            </div>
           </div>
         </div>
 
@@ -398,6 +488,14 @@ function getStatusClass(status) {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
+}
+
+.filters-location-row {
+  margin: 1rem 0;
+}
+
+.filter-group.full-width {
+  width: 100%;
 }
 
 .btn {

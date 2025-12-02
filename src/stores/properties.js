@@ -21,6 +21,11 @@ export const usePropertiesStore = defineStore('properties', () => {
     min_area: null,
     max_area: null,
     search: null
+    ,
+    // location-based filtering
+    latitude: null,
+    longitude: null,
+    radius_km: null
   })
 
   const currentPage = computed(() => Math.floor(filters.value.offset / filters.value.limit) + 1)
@@ -164,6 +169,10 @@ export const usePropertiesStore = defineStore('properties', () => {
       min_area: null,
       max_area: null,
       search: null
+      ,
+      latitude: null,
+      longitude: null,
+      radius_km: null
     }
   }
 
