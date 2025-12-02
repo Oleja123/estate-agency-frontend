@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 
@@ -19,6 +19,16 @@ function handleLogout() {
   authStore.logout()
   router.push({ name: 'login' })
 }
+
+const showMenu = ref(false)
+
+function toggleMenu() {
+  showMenu.value = !showMenu.value
+}
+
+function closeMenu() {
+  showMenu.value = false
+}
 </script>
 
 <template>
@@ -29,11 +39,17 @@ function handleLogout() {
         Estate Agency
       </RouterLink>
 
-      <nav class="navbar-nav" v-if="isAuthenticated">
-        <RouterLink to="/properties" class="nav-link">Properties</RouterLink>
-        <RouterLink to="/favorites" class="nav-link">Favorites</RouterLink>
-        <RouterLink v-if="isAdmin" to="/users" class="nav-link">Users</RouterLink>
-        <RouterLink v-if="isAdmin" to="/property-types" class="nav-link">Property Types</RouterLink>
+      <button class="navbar-burger" @click="toggleMenu" aria-label="Toggle menu" :aria-expanded="showMenu">
+        <span class="burger-line"></span>
+        <span class="burger-line"></span>
+        <span class="burger-line"></span>
+      </button>
+
+      <nav :class="['navbar-nav', { 'mobile-open': showMenu }]" v-if="isAuthenticated">
+        <RouterLink to="/properties" class="nav-link" @click="closeMenu">Properties</RouterLink>
+        <RouterLink to="/favorites" class="nav-link" @click="closeMenu">Favorites</RouterLink>
+        <RouterLink v-if="isAdmin" to="/users" class="nav-link" @click="closeMenu">Users</RouterLink>
+        <RouterLink v-if="isAdmin" to="/property-types" class="nav-link" @click="closeMenu">Property Types</RouterLink>
       </nav>
 
       <div class="navbar-actions">
@@ -176,8 +192,39 @@ function handleLogout() {
 }
 
 @media (max-width: 768px) {
+  .navbar-burger {
+    display: block;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    margin-right: 0.5rem;
+  }
+
+  .burger-line {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: #374151;
+    margin: 4px 0;
+  }
+
   .navbar-nav {
     display: none;
+  }
+
+  .navbar-nav.mobile-open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 1rem;
+    gap: 0.5rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+    z-index: 90;
   }
 
   .user-name {
