@@ -7,6 +7,9 @@ export const useUsersStore = defineStore('users', () => {
   const users = ref([])
   const currentUser = ref(null)
   const favorites = ref([])
+  const favoritesTotal = ref(0)
+  // remember last used params for favorites pagination
+  const favoritesLastParams = ref({ limit: 6, offset: 0 })
   const total = ref(0)
   const loading = ref(false)
   const error = ref(null)
@@ -220,13 +223,24 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  async function fetchFavorites(userId) {
+  async function fetchFavorites(userId, params = {}) {
+    // separate loading/error for favorites would be cleaner, but reuse general flags
     loading.value = true
     error.value = null
 
+    // merge with last params so callers that don't pass pagination keep it
+    const merged = { ...favoritesLastParams.value, ...params }
+    const cleaned = { ...merged }
+    Object.keys(cleaned).forEach((k) => {
+      if (cleaned[k] === '' || cleaned[k] === null || cleaned[k] === undefined) {
+        delete cleaned[k]
+      }
+    })
+    favoritesLastParams.value = { ...cleaned }
+
     try {
-      const response = await usersApi.getFavorites(userId)
-      // normalize possible response shapes to an array of favorite items
+      const response = await usersApi.getFavorites(userId, cleaned)
+      // normalize response shapes: items + total
       const d = response.data
       let items = []
       if (Array.isArray(d)) {
@@ -239,12 +253,15 @@ export const useUsersStore = defineStore('users', () => {
         items = d.items
       } else if (Array.isArray(d.results)) {
         items = d.results
-      } else if (d && typeof d === 'object' && Object.keys(d).length === 0) {
-        items = []
       }
 
+      // total from body or headers
+      let tot = d?.total ?? d?.count ?? d?.meta?.total ?? response.headers?.['x-total-count'] ?? items.length
+      tot = Number(tot) || 0
+
       favorites.value = items
-      return items
+      favoritesTotal.value = tot
+      return { items, total: tot }
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch favorites'
       throw err

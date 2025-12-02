@@ -116,8 +116,8 @@ export const usersApi = {
   delete: (id) =>
     wrapCall(() => api.delete(`/users/${id}`), 'DELETE', `/users/${id}`, null),
 
-  getFavorites: (id) =>
-    wrapCall(() => api.get(`/users/${id}/favorites`), 'GET', `/users/${id}/favorites`, null)
+  getFavorites: (id, params = {}) =>
+    wrapCall(() => api.get(`/users/${id}/favorites`, { params }), 'GET', `/users/${id}/favorites`, { params }),
 }
 
 export const propertiesApi = {

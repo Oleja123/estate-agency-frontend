@@ -7,6 +7,7 @@ import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
 import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
 import AlertMessage from '../../components/common/AlertMessage.vue'
+import PaginationControl from '../../components/common/PaginationControl.vue'
 import paginationConfig from '../../config/pagination'
 
 const usersStore = useUsersStore()
@@ -18,6 +19,9 @@ const favoriteIds = ref([])
 const favoriteProperties = ref([])
 const loading = ref(true)
 const error = ref(null)
+
+const limit = ref(paginationConfig.favorites)
+const offset = ref(0)
 
 const currentUserId = computed(() => authStore.currentUserId)
 
@@ -34,19 +38,29 @@ onMounted(async () => {
 
 async function loadFavorites() {
   if (!currentUserId.value) return
-  
-  const favorites = await usersStore.fetchFavorites(currentUserId.value)
-  favoriteIds.value = favorites.map(f => f.property_id)
-  
-  if (favoriteIds.value.length > 0) {
-    const response = await propertiesStore.fetchProperties({
-      ids: favoriteIds.value.join(','),
-      limit: paginationConfig.lookup
-    })
-    // propertiesStore.fetchProperties may return the API data shape; normalize
-    favoriteProperties.value = response?.properties || response?.data || response || []
+
+  try {
+    const res = await usersStore.fetchFavorites(currentUserId.value, { limit: limit.value, offset: offset.value })
+    if (res && Array.isArray(res.items)) {
+      favoriteProperties.value = res.items
+    } else if (Array.isArray(usersStore.favorites)) {
+      // fallback: store populated favorites
+      favoriteProperties.value = usersStore.favorites
+    } else {
+      favoriteProperties.value = []
+    }
+  } catch (err) {
+    error.value = 'Failed to load favorites'
   }
 }
+
+function handlePageChange(page) {
+  offset.value = (page - 1) * limit.value
+  loadFavorites()
+}
+
+const currentPage = () => Math.floor(offset.value / limit.value) + 1
+const totalPages = () => Math.ceil((usersStore.favoritesTotal || 0) / limit.value)
 
 async function removeFavorite(propertyId) {
   try {
@@ -141,6 +155,11 @@ function getStatusClass(status) {
           </button>
         </div>
       </div>
+      <PaginationControl
+        :current-page="currentPage()"
+        :total-pages="totalPages()"
+        @page-change="handlePageChange"
+      />
     </template>
   </div>
 </template>

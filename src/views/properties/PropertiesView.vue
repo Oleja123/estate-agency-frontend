@@ -41,9 +41,60 @@ watch(() => propertiesStore.filters, () => {
 }, { deep: true })
 
 function applyFilters() {
+  // clear previous error
+  propertiesStore.clearError()
+
+  // validate numeric ranges: price and area
+  const minPrice = localFilters.value.min_price === '' || localFilters.value.min_price === null
+    ? null
+    : Number(localFilters.value.min_price)
+  const maxPrice = localFilters.value.max_price === '' || localFilters.value.max_price === null
+    ? null
+    : Number(localFilters.value.max_price)
+
+  const minArea = localFilters.value.min_area === '' || localFilters.value.min_area === null
+    ? null
+    : Number(localFilters.value.min_area)
+  const maxArea = localFilters.value.max_area === '' || localFilters.value.max_area === null
+    ? null
+    : Number(localFilters.value.max_area)
+
+  // negative value checks
+  if (minPrice !== null && Number.isFinite(minPrice) && minPrice < 0) {
+    propertiesStore.error = 'Минимальная цена не может быть отрицательной.'
+    return
+  }
+
+  if (maxPrice !== null && Number.isFinite(maxPrice) && maxPrice < 0) {
+    propertiesStore.error = 'Максимальная цена не может быть отрицательной.'
+    return
+  }
+
+  if (minArea !== null && Number.isFinite(minArea) && minArea < 0) {
+    propertiesStore.error = 'Минимальная площадь не может быть отрицательной.'
+    return
+  }
+
+  if (maxArea !== null && Number.isFinite(maxArea) && maxArea < 0) {
+    propertiesStore.error = 'Максимальная площадь не может быть отрицательной.'
+    return
+  }
+
+  // range consistency checks
+  if (minPrice !== null && maxPrice !== null && Number.isFinite(minPrice) && Number.isFinite(maxPrice) && maxPrice < minPrice) {
+    propertiesStore.error = 'Максимальная цена не может быть меньше минимальной.'
+    return
+  }
+
+  if (minArea !== null && maxArea !== null && Number.isFinite(minArea) && Number.isFinite(maxArea) && maxArea < minArea) {
+    propertiesStore.error = 'Максимальная площадь не может быть меньше минимальной.'
+    return
+  }
+
   const filters = {}
   Object.entries(localFilters.value).forEach(([key, value]) => {
-    if (value !== '' && value !== null) {
+    // include empty-string values so selecting "All" clears the filter
+    if (value !== null && value !== undefined) {
       filters[key] = value
     }
   })

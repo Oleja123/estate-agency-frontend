@@ -109,32 +109,30 @@ function dismissError() {
       />
 
       <form @submit.prevent="handleSubmit" class="auth-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="first_name" class="form-label">First Name</label>
-            <input
-              id="first_name"
-              v-model="form.first_name"
-              type="text"
-              class="form-input"
-              :class="{ 'input-error': errors.first_name }"
-              placeholder="John"
-            />
-            <span v-if="errors.first_name" class="error-text">{{ errors.first_name }}</span>
-          </div>
+        <div class="form-group">
+          <label for="first_name" class="form-label">First Name</label>
+          <input
+            id="first_name"
+            v-model="form.first_name"
+            type="text"
+            class="form-input"
+            :class="{ 'input-error': errors.first_name }"
+            placeholder="John"
+          />
+          <span v-if="errors.first_name" class="error-text">{{ errors.first_name }}</span>
+        </div>
 
-          <div class="form-group">
-            <label for="last_name" class="form-label">Last Name</label>
-            <input
-              id="last_name"
-              v-model="form.last_name"
-              type="text"
-              class="form-input"
-              :class="{ 'input-error': errors.last_name }"
-              placeholder="Doe"
-            />
-            <span v-if="errors.last_name" class="error-text">{{ errors.last_name }}</span>
-          </div>
+        <div class="form-group">
+          <label for="last_name" class="form-label">Last Name</label>
+          <input
+            id="last_name"
+            v-model="form.last_name"
+            type="text"
+            class="form-input"
+            :class="{ 'input-error': errors.last_name }"
+            placeholder="Doe"
+          />
+          <span v-if="errors.last_name" class="error-text">{{ errors.last_name }}</span>
         </div>
 
         <div class="form-group">
