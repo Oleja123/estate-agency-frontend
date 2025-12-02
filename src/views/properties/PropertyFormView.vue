@@ -5,6 +5,7 @@ import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
 import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
 import AlertMessage from '../../components/common/AlertMessage.vue'
+import paginationConfig from '../../config/pagination'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,7 +36,7 @@ const transactionTypes = ['sale', 'rent']
 const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
 
 onMounted(async () => {
-  await propertyTypesStore.fetchPropertyTypes({ limit: 100 })
+  await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
   
   if (isEditMode.value) {
     const id = parseInt(route.params.id)

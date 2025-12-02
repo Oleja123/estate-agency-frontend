@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { usersApi } from '../api'
+import paginationConfig from '../config/pagination'
 
 export const useUsersStore = defineStore('users', () => {
   const users = ref([])
@@ -11,9 +12,9 @@ export const useUsersStore = defineStore('users', () => {
   const error = ref(null)
   const fieldErrors = ref({})
   // remember last used params so calls without params keep pagination
-  const lastParams = ref({ limit: 3, offset: 0 })
+  const lastParams = ref({ limit: paginationConfig.users, offset: 0 })
 
-  function resetLastParams(newParams = { limit: 3, offset: 0 }) {
+  function resetLastParams(newParams = { limit: paginationConfig.users, offset: 0 }) {
     lastParams.value = { ...newParams }
   }
 

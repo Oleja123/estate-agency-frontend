@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/auth'
 import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
 import AlertMessage from '../../components/common/AlertMessage.vue'
 import PaginationControl from '../../components/common/PaginationControl.vue'
+import paginationConfig from '../../config/pagination'
 
 const propertiesStore = usePropertiesStore()
 const propertyTypesStore = usePropertyTypesStore()
@@ -31,7 +32,7 @@ const transactionTypes = ['sale', 'rent']
 const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
 
 onMounted(async () => {
-  await propertyTypesStore.fetchPropertyTypes({ limit: 100 })
+  await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
   await propertiesStore.fetchProperties()
 })
 

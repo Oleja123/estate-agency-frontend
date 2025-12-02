@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
+import PaginationControl from '../../components/common/PaginationControl.vue'
 import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
 import AlertMessage from '../../components/common/AlertMessage.vue'
 import ModalDialog from '../../components/common/ModalDialog.vue'
 import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
+import paginationConfig from '../../config/pagination'
 
 const propertyTypesStore = usePropertyTypesStore()
 
@@ -15,10 +17,27 @@ const selectedType = ref(null)
 const newTypeName = ref('')
 const editTypeName = ref('')
 const formError = ref('')
+const limit = ref(paginationConfig.propertyTypes)
+const offset = ref(0)
 
 onMounted(() => {
-  propertyTypesStore.fetchPropertyTypes({ limit: 100 })
+  loadTypes()
 })
+
+async function loadTypes() {
+  const params = {
+    limit: limit.value,
+    offset: offset.value
+  }
+
+  console.log('[PropertyTypesView] loadTypes -> built params:', params)
+  try {
+    await propertyTypesStore.fetchPropertyTypes(params)
+  } catch (err) {
+    console.error('[PropertyTypesView] loadTypes -> fetchPropertyTypes failed:', err)
+    throw err
+  }
+}
 
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -56,6 +75,8 @@ async function handleCreate() {
     await propertyTypesStore.createPropertyType(newTypeName.value.trim())
     showCreateModal.value = false
     newTypeName.value = ''
+    // reload current page
+    await loadTypes()
   } catch (error) {
     formError.value = error.response?.data?.message || 'Failed to create property type'
   }
@@ -73,6 +94,8 @@ async function handleUpdate() {
     await propertyTypesStore.updatePropertyType(selectedType.value.id, editTypeName.value.trim())
     showEditModal.value = false
     selectedType.value = null
+    // reload current page
+    await loadTypes()
   } catch (error) {
     formError.value = error.response?.data?.message || 'Failed to update property type'
   }
@@ -85,10 +108,24 @@ async function handleDelete() {
     await propertyTypesStore.deletePropertyType(selectedType.value.id)
     showDeleteDialog.value = false
     selectedType.value = null
+    // ensure current page is still valid
+    const pages = Math.ceil(propertyTypesStore.total / limit.value)
+    if (Math.floor(offset.value / limit.value) + 1 > pages && pages > 0) {
+      offset.value = (pages - 1) * limit.value
+    }
+    await loadTypes()
   } catch (error) {
     console.error('Failed to delete property type:', error)
   }
 }
+
+function handlePageChange(page) {
+  offset.value = (page - 1) * limit.value
+  loadTypes()
+}
+
+const currentPage = () => Math.floor(offset.value / limit.value) + 1
+const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Number(limit.value || 3))
 </script>
 
 <template>
@@ -152,10 +189,10 @@ async function handleDelete() {
     >
       <div class="type-form">
         <AlertMessage
-          v-if="formError"
+          v-if="propertyTypesStore.error || formError"
           type="error"
-          :message="formError"
-          @dismiss="formError = ''"
+          :message="propertyTypesStore.error || formError"
+          @dismiss="propertyTypesStore.clearError"
         />
         <div class="form-group">
           <label for="new-type-name" class="form-label">Name</label>
@@ -167,6 +204,7 @@ async function handleDelete() {
             placeholder="e.g. Apartment, House, Commercial"
             @keyup.enter="handleCreate"
           />
+          <span v-if="propertyTypesStore.fieldErrors && propertyTypesStore.fieldErrors.name" class="error-text">{{ propertyTypesStore.fieldErrors.name }}</span>
         </div>
       </div>
       <template #footer>
@@ -183,10 +221,10 @@ async function handleDelete() {
     >
       <div class="type-form">
         <AlertMessage
-          v-if="formError"
+          v-if="propertyTypesStore.error || formError"
           type="error"
-          :message="formError"
-          @dismiss="formError = ''"
+          :message="propertyTypesStore.error || formError"
+          @dismiss="propertyTypesStore.clearError"
         />
         <div class="form-group">
           <label for="edit-type-name" class="form-label">Name</label>
@@ -197,6 +235,7 @@ async function handleDelete() {
             class="form-input"
             @keyup.enter="handleUpdate"
           />
+          <span v-if="propertyTypesStore.fieldErrors && propertyTypesStore.fieldErrors.name" class="error-text">{{ propertyTypesStore.fieldErrors.name }}</span>
         </div>
       </div>
       <template #footer>
@@ -204,6 +243,12 @@ async function handleDelete() {
         <button @click="handleUpdate" class="btn btn-primary">Save</button>
       </template>
     </ModalDialog>
+
+    <PaginationControl
+      :current-page="currentPage()"
+      :total-pages="totalPages()"
+      @page-change="handlePageChange"
+    />
 
     <ConfirmDialog
       :show="showDeleteDialog"

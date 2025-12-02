@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/auth'
 import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
 import AlertMessage from '../../components/common/AlertMessage.vue'
 import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
+import paginationConfig from '../../config/pagination'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,7 +24,7 @@ const favoriteLoading = ref(false)
 onMounted(async () => {
   const id = parseInt(route.params.id)
   await propertiesStore.fetchProperty(id)
-  await propertyTypesStore.fetchPropertyTypes({ limit: 100 })
+  await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
 })
 
 function formatPrice(price) {
