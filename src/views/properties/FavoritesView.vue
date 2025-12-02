@@ -41,9 +41,10 @@ async function loadFavorites() {
   if (favoriteIds.value.length > 0) {
     const response = await propertiesStore.fetchProperties({
       ids: favoriteIds.value.join(','),
-      limit: 100
+      limit: paginationConfig.lookup
     })
-    favoriteProperties.value = response.properties || []
+    // propertiesStore.fetchProperties may return the API data shape; normalize
+    favoriteProperties.value = response?.properties || response?.data || response || []
   }
 }
 

@@ -226,8 +226,25 @@ export const useUsersStore = defineStore('users', () => {
 
     try {
       const response = await usersApi.getFavorites(userId)
-      favorites.value = response.data || []
-      return response.data
+      // normalize possible response shapes to an array of favorite items
+      const d = response.data
+      let items = []
+      if (Array.isArray(d)) {
+        items = d
+      } else if (Array.isArray(d.favorites)) {
+        items = d.favorites
+      } else if (Array.isArray(d.data)) {
+        items = d.data
+      } else if (Array.isArray(d.items)) {
+        items = d.items
+      } else if (Array.isArray(d.results)) {
+        items = d.results
+      } else if (d && typeof d === 'object' && Object.keys(d).length === 0) {
+        items = []
+      }
+
+      favorites.value = items
+      return items
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch favorites'
       throw err
