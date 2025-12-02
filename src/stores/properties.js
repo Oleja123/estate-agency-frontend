@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { propertiesApi } from '../api'
+import paginationConfig from '../config/pagination'
 
 export const usePropertiesStore = defineStore('properties', () => {
   const properties = ref([])
@@ -9,7 +10,7 @@ export const usePropertiesStore = defineStore('properties', () => {
   const loading = ref(false)
   const error = ref(null)
   const filters = ref({
-    limit: 3,
+    limit: paginationConfig.properties,
     offset: 0,
     type_id: null,
     transaction_type: null,
@@ -152,7 +153,7 @@ export const usePropertiesStore = defineStore('properties', () => {
 
   function resetFilters() {
     filters.value = {
-      limit: 12,
+      limit: paginationConfig.properties,
       offset: 0,
       type_id: null,
       transaction_type: null,

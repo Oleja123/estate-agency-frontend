@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import paginationConfig from '../../config/pagination'
 import { RouterLink } from 'vue-router'
 import { useUsersStore } from '../../stores/users'
 import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
@@ -10,7 +11,7 @@ import ModalDialog from '../../components/common/ModalDialog.vue'
 
 const usersStore = useUsersStore()
 
-const limit = ref(3)
+const limit = ref(paginationConfig.users)
 const offset = ref(0)
 const search = ref('')
 const roleFilter = ref('')

@@ -7,6 +7,7 @@ import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
 import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
 import AlertMessage from '../../components/common/AlertMessage.vue'
+import paginationConfig from '../../config/pagination'
 
 const usersStore = useUsersStore()
 const authStore = useAuthStore()
@@ -22,7 +23,7 @@ const currentUserId = computed(() => authStore.currentUserId)
 
 onMounted(async () => {
   try {
-    await propertyTypesStore.fetchPropertyTypes({ limit: 100 })
+    await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
     await loadFavorites()
   } catch (err) {
     error.value = 'Failed to load favorites'
