@@ -11,6 +11,32 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
   const error = ref(null)
   const fieldErrors = ref({})
 
+  // Helper: map backend responses to safe user-facing messages and extract field errors
+  function handleResponseError(resp, opts = { context: 'request' }) {
+    try { console.error('[propertyTypes] API error', opts.context, resp?.status, resp?.data) } catch (e) {}
+
+    if (!resp) return 'Сетевой или транспортный сбой. Проверьте подключение.'
+
+    const details = resp.data?.details || resp.data?.fieldErrors || resp.data?.errors || {}
+    fieldErrors.value = details || {}
+
+    switch (resp.status) {
+      case 400:
+        return 'Некорректный запрос. Проверьте введённые данные.'
+      case 401:
+        return 'Требуется авторизация. Пожалуйста, войдите в систему.'
+      case 403:
+        return 'Недостаточно прав для выполнения этой операции.'
+      case 404:
+        return 'Тип не найден.'
+      case 409:
+        return 'Невозможно удалить: есть связанные собственности.'
+      case 500:
+      default:
+        return 'Внутренняя ошибка сервера. Повторите попытку позже.'
+    }
+  }
+
   async function fetchPropertyTypes(params = {}) {
     loading.value = true
     error.value = null
@@ -52,7 +78,8 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
         total.value = tot
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch property types'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'fetchPropertyTypes' })
       throw err
     } finally {
       loading.value = false
@@ -68,7 +95,8 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       currentType.value = response.data
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch property type'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'fetchPropertyType' })
       throw err
     } finally {
       loading.value = false
@@ -87,33 +115,8 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const status = err.response?.status
-      const data = err.response?.data
-
-      // parse field errors if present
-      if (data && typeof data === 'object') {
-        const errorsObj = data.errors || data
-        const fields = {}
-        for (const [k, v] of Object.entries(errorsObj)) {
-          fields[k] = Array.isArray(v) ? v.join(', ') : v
-        }
-        fieldErrors.value = Object.keys(fields).length ? fields : {}
-      }
-
-      if (status === 400) {
-        error.value = data?.message || 'Validation failed. Check the form fields.'
-      } else if (status === 401) {
-        error.value = 'Authentication required. Please log in.'
-      } else if (status === 403) {
-        error.value = 'Access denied. You do not have permission.'
-      } else if (status === 409) {
-        error.value = data?.message || 'Property type with this name already exists.'
-      } else if (status === 500) {
-        error.value = 'Server error. Please try again later.'
-      } else {
-        error.value = data?.message || 'Failed to create property type'
-      }
-
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'createPropertyType' })
       throw err
     } finally {
       loading.value = false
@@ -132,32 +135,8 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const status = err.response?.status
-      const data = err.response?.data
-
-      if (data && typeof data === 'object') {
-        const errorsObj = data.errors || data
-        const fields = {}
-        for (const [k, v] of Object.entries(errorsObj)) {
-          fields[k] = Array.isArray(v) ? v.join(', ') : v
-        }
-        fieldErrors.value = Object.keys(fields).length ? fields : {}
-      }
-
-      if (status === 400) {
-        error.value = data?.message || 'Validation failed. Check the form fields.'
-      } else if (status === 401) {
-        error.value = 'Authentication required. Please log in.'
-      } else if (status === 403) {
-        error.value = 'Access denied. You do not have permission.'
-      } else if (status === 409) {
-        error.value = data?.message || 'Conflict: property type already exists.'
-      } else if (status === 500) {
-        error.value = 'Server error. Please try again later.'
-      } else {
-        error.value = data?.message || 'Failed to update property type'
-      }
-
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'updatePropertyType' })
       throw err
     } finally {
       loading.value = false
@@ -175,20 +154,8 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const status = err.response?.status
-
-      if (status === 401) {
-        error.value = 'Authentication required. Please log in.'
-      } else if (status === 403) {
-        error.value = 'You do not have permission to delete this type.'
-      } else if (status === 409) {
-        error.value = 'Cannot delete this type because it is in use.'
-      } else if (status === 500) {
-        error.value = 'An unexpected error occurred. Please try again later.'
-      } else {
-        error.value = 'Failed to delete property type. Please try again.'
-      }
-
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'deletePropertyType' })
       throw err
     } finally {
       loading.value = false
@@ -200,6 +167,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
     fieldErrors.value = {}
   }
 
+  function clearFieldErrors() {
+    fieldErrors.value = {}
+  }
   return {
     propertyTypes,
     currentType,
@@ -212,6 +182,7 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
     updatePropertyType,
     deletePropertyType,
     fieldErrors,
-    clearError
+    clearError,
+    clearFieldErrors
   }
 })

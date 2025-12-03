@@ -34,6 +34,8 @@ async function handleSubmit() {
   if (!validateForm()) return
   
   showError.value = false
+  // clear previous server-side errors
+  authStore.clearError()
   
   try {
     await authStore.login(form.value.login, form.value.password)
@@ -78,10 +80,11 @@ function dismissError() {
             v-model="form.login"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.login }"
+            :class="{ 'input-error': errors.login || authStore.fieldErrors?.login }"
             placeholder="Enter your login"
           />
           <span v-if="errors.login" class="error-text">{{ errors.login }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.login" class="error-text">{{ authStore.fieldErrors.login }}</span>
         </div>
 
         <div class="form-group">
@@ -91,10 +94,11 @@ function dismissError() {
             v-model="form.password"
             type="password"
             class="form-input"
-            :class="{ 'input-error': errors.password }"
+            :class="{ 'input-error': errors.password || authStore.fieldErrors?.password }"
             placeholder="Enter your password"
           />
           <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.password" class="error-text">{{ authStore.fieldErrors.password }}</span>
         </div>
 
         <button

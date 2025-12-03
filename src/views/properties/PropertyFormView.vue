@@ -98,7 +98,10 @@ async function handleSubmit() {
   loading.value = true
   success.value = false
   
-  try {
+    try {
+      // clear previous server-side field errors
+      propertiesStore.clearFieldErrors()
+      propertiesStore.clearError()
     const data = {
       ...form.value,
       type_id: parseInt(form.value.type_id),
@@ -128,6 +131,12 @@ async function handleSubmit() {
     success.value = true
   } catch (error) {
     console.error('Failed to save property:', error)
+    // merge server-side field errors into local errors so they show next to inputs
+    if (propertiesStore.fieldErrors && Object.keys(propertiesStore.fieldErrors).length) {
+      for (const [k, v] of Object.entries(propertiesStore.fieldErrors)) {
+        errors.value[k] = Array.isArray(v) ? v.join(', ') : v
+      }
+    }
   } finally {
     loading.value = false
   }
@@ -174,7 +183,7 @@ function goBack() {
     <form @submit.prevent="handleSubmit" class="property-form">
       <div class="form-card">
         <h2 class="form-section-title">Basic Information</h2>
-        
+
         <div class="form-group">
           <label for="title" class="form-label">Title *</label>
           <input
@@ -182,10 +191,11 @@ function goBack() {
             v-model="form.title"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.title }"
+            :class="{ 'input-error': errors.title || propertiesStore.fieldErrors?.title }"
             placeholder="e.g. Luxury Apartment in Downtown"
           />
           <span v-if="errors.title" class="error-text">{{ errors.title }}</span>
+          <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.title" class="error-text">{{ propertiesStore.fieldErrors.title }}</span>
         </div>
 
         <div class="form-group">
@@ -194,11 +204,12 @@ function goBack() {
             id="description"
             v-model="form.property_description"
             class="form-input form-textarea"
-            :class="{ 'input-error': errors.property_description }"
+            :class="{ 'input-error': errors.property_description || propertiesStore.fieldErrors?.property_description }"
             placeholder="Describe the property..."
             rows="4"
           ></textarea>
           <span v-if="errors.property_description" class="error-text">{{ errors.property_description }}</span>
+          <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.property_description" class="error-text">{{ propertiesStore.fieldErrors.property_description }}</span>
         </div>
 
         <div class="form-row">
@@ -208,7 +219,7 @@ function goBack() {
               id="type_id"
               v-model="form.type_id"
               class="form-input"
-              :class="{ 'input-error': errors.type_id }"
+              :class="{ 'input-error': errors.type_id || propertiesStore.fieldErrors?.type_id }"
             >
               <option value="">Select type...</option>
               <option
@@ -220,6 +231,7 @@ function goBack() {
               </option>
             </select>
             <span v-if="errors.type_id" class="error-text">{{ errors.type_id }}</span>
+            <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.type_id" class="error-text">{{ propertiesStore.fieldErrors.type_id }}</span>
           </div>
 
           <div class="form-group">
@@ -241,30 +253,32 @@ function goBack() {
             <label for="price" class="form-label">Price (USD) *</label>
             <input
               id="price"
-              v-model="form.price"
+              v-model.number="form.price"
               type="number"
               min="0"
               step="0.01"
               class="form-input"
-              :class="{ 'input-error': errors.price }"
+              :class="{ 'input-error': errors.price || propertiesStore.fieldErrors?.price }"
               placeholder="350000"
             />
             <span v-if="errors.price" class="error-text">{{ errors.price }}</span>
+            <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.price" class="error-text">{{ propertiesStore.fieldErrors.price }}</span>
           </div>
 
           <div class="form-group">
             <label for="area" class="form-label">Area (m²) *</label>
             <input
               id="area"
-              v-model="form.area"
+              v-model.number="form.area"
               type="number"
               min="0"
               step="0.01"
               class="form-input"
-              :class="{ 'input-error': errors.area }"
+              :class="{ 'input-error': errors.area || propertiesStore.fieldErrors?.area }"
               placeholder="120"
             />
             <span v-if="errors.area" class="error-text">{{ errors.area }}</span>
+            <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.area" class="error-text">{{ propertiesStore.fieldErrors.area }}</span>
           </div>
         </div>
 
@@ -292,10 +306,11 @@ function goBack() {
             v-model="form.property_address"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.property_address }"
+            :class="{ 'input-error': errors.property_address || propertiesStore.fieldErrors?.property_address }"
             placeholder="123 Main Street"
           />
           <span v-if="errors.property_address" class="error-text">{{ errors.property_address }}</span>
+          <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.property_address" class="error-text">{{ propertiesStore.fieldErrors.property_address }}</span>
           <span class="form-hint">The address will be geocoded to get coordinates.</span>
         </div>
 
@@ -306,10 +321,11 @@ function goBack() {
             v-model="form.city"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.city }"
+            :class="{ 'input-error': errors.city || propertiesStore.fieldErrors?.city }"
             placeholder="New York"
           />
           <span v-if="errors.city" class="error-text">{{ errors.city }}</span>
+          <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.city" class="error-text">{{ propertiesStore.fieldErrors.city }}</span>
         </div>
       </div>
 

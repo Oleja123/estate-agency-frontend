@@ -61,6 +61,8 @@ async function handleSubmit() {
   
   showError.value = false
   showSuccess.value = false
+  // clear previous server errors
+  authStore.clearError()
   
   try {
     const { confirmPassword, ...userData } = form.value
@@ -116,10 +118,11 @@ function dismissError() {
             v-model="form.first_name"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.first_name }"
+            :class="{ 'input-error': errors.first_name || authStore.fieldErrors?.first_name }"
             placeholder="John"
           />
           <span v-if="errors.first_name" class="error-text">{{ errors.first_name }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.first_name" class="error-text">{{ authStore.fieldErrors.first_name }}</span>
         </div>
 
         <div class="form-group">
@@ -129,10 +132,11 @@ function dismissError() {
             v-model="form.last_name"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.last_name }"
+            :class="{ 'input-error': errors.last_name || authStore.fieldErrors?.last_name }"
             placeholder="Doe"
           />
           <span v-if="errors.last_name" class="error-text">{{ errors.last_name }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.last_name" class="error-text">{{ authStore.fieldErrors.last_name }}</span>
         </div>
 
         <div class="form-group">
@@ -142,10 +146,11 @@ function dismissError() {
             v-model="form.login"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.login }"
+            :class="{ 'input-error': errors.login || authStore.fieldErrors?.login }"
             placeholder="your login"
           />
           <span v-if="errors.login" class="error-text">{{ errors.login }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.login" class="error-text">{{ authStore.fieldErrors.login }}</span>
         </div>
 
         <div class="form-group">
@@ -155,10 +160,11 @@ function dismissError() {
             v-model="form.phone_number"
             type="tel"
             class="form-input"
-            :class="{ 'input-error': errors.phone_number }"
+            :class="{ 'input-error': errors.phone_number || authStore.fieldErrors?.phone_number }"
             placeholder="+1234567890"
           />
           <span v-if="errors.phone_number" class="error-text">{{ errors.phone_number }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.phone_number" class="error-text">{{ authStore.fieldErrors.phone_number }}</span>
         </div>
 
         <div class="form-group">
@@ -168,10 +174,11 @@ function dismissError() {
             v-model="form.password"
             type="password"
             class="form-input"
-            :class="{ 'input-error': errors.password }"
+            :class="{ 'input-error': errors.password || authStore.fieldErrors?.password }"
               placeholder="Enter password"
           />
           <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.password" class="error-text">{{ authStore.fieldErrors.password }}</span>
         </div>
 
         <div class="form-group">
@@ -181,10 +188,11 @@ function dismissError() {
             v-model="form.confirmPassword"
             type="password"
             class="form-input"
-            :class="{ 'input-error': errors.confirmPassword }"
+            :class="{ 'input-error': errors.confirmPassword || authStore.fieldErrors?.confirmPassword }"
             placeholder="Confirm your password"
           />
           <span v-if="errors.confirmPassword" class="error-text">{{ errors.confirmPassword }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.confirmPassword" class="error-text">{{ authStore.fieldErrors.confirmPassword }}</span>
         </div>
 
         <button
