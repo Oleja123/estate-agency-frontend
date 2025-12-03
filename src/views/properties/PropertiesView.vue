@@ -8,6 +8,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
 import AlertMessage from '../../components/common/AlertMessage.vue'
 import PaginationControl from '../../components/common/PaginationControl.vue'
 import paginationConfig from '../../config/pagination'
+import ImageLightbox from '../../components/common/ImageLightbox.vue'
 
 const propertiesStore = usePropertiesStore()
 const propertyTypesStore = usePropertyTypesStore()
@@ -212,6 +213,72 @@ function getStatusClass(status) {
     default: return ''
   }
 }
+
+function getImageSrc(property) {
+  // Use `property.image` for list cards (per swagger)
+  const img = property?.image || null
+  if (!img) return null
+  // If backend provided a url field, use it
+  if (img.url) return img.url
+  const data = img.data
+  const filename = img.filename || ''
+  if (data) {
+    const ext = filename.split('.').pop()?.toLowerCase() || ''
+    let mime = 'image/jpeg'
+    if (ext === 'png') mime = 'image/png'
+    else if (ext === 'webp') mime = 'image/webp'
+    else if (ext === 'gif') mime = 'image/gif'
+    else if (ext === 'svg') mime = 'image/svg+xml'
+    return `data:${mime};base64,${data}`
+  }
+  return null
+}
+
+const lightboxVisible = ref(false)
+const lightboxImages = ref([])
+const lightboxStartIndex = ref(0)
+
+function buildListImageSrcList(property) {
+  const list = []
+  // prefer property.images if present
+  if (Array.isArray(property?.images) && property.images.length > 0) {
+    for (const img of property.images) {
+      if (!img) continue
+      if (img.url) list.push(img.url)
+      else if (img.data) {
+        const filename = img.filename || ''
+        const ext = filename.split('.').pop()?.toLowerCase() || ''
+        let mime = 'image/jpeg'
+        if (ext === 'png') mime = 'image/png'
+        else if (ext === 'webp') mime = 'image/webp'
+        else if (ext === 'gif') mime = 'image/gif'
+        else if (ext === 'svg') mime = 'image/svg+xml'
+        list.push(`data:${mime};base64,${img.data}`)
+      }
+    }
+  } else if (property?.image) {
+    const img = property.image
+    if (img.url) list.push(img.url)
+    else if (img.data) {
+      const filename = img.filename || ''
+      const ext = filename.split('.').pop()?.toLowerCase() || ''
+      let mime = 'image/jpeg'
+      if (ext === 'png') mime = 'image/png'
+      else if (ext === 'webp') mime = 'image/webp'
+      else if (ext === 'gif') mime = 'image/gif'
+      else if (ext === 'svg') mime = 'image/svg+xml'
+      list.push(`data:${mime};base64,${img.data}`)
+    }
+  }
+  return list
+}
+
+function openPropertyLightbox(property, start = 0) {
+  lightboxImages.value = buildListImageSrcList(property)
+  lightboxStartIndex.value = start
+  if (lightboxImages.value.length === 0) return
+  lightboxVisible.value = true
+}
 </script>
 
 <template>
@@ -380,7 +447,8 @@ function getStatusClass(status) {
           :to="`/properties/${property.id}`"
           class="property-card"
         >
-          <div class="property-image">
+          <div :class="['property-image', { 'has-image': getImageSrc(property) }]">
+            <img v-if="getImageSrc(property)" :src="getImageSrc(property)" :alt="property.title" class="property-img" @click.stop.prevent="openPropertyLightbox(property, 0)" />
             <span class="property-type-badge">
               {{ getPropertyTypeName(property.type_id) }}
             </span>
@@ -402,6 +470,8 @@ function getStatusClass(status) {
           </div>
         </RouterLink>
       </div>
+
+      <ImageLightbox :images="lightboxImages" :startIndex="lightboxStartIndex" v-model="lightboxVisible" @close="lightboxVisible = false" />
 
       <PaginationControl
         :current-page="propertiesStore.currentPage"
@@ -584,6 +654,24 @@ function getStatusClass(status) {
   content: '🏠';
   font-size: 4rem;
   opacity: 0.5;
+}
+
+.property-image.has-image::after {
+  display: none;
+}
+
+.property-image .property-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.property-image .property-type-badge,
+.property-image .property-status-badge {
+  z-index: 2;
 }
 
 .property-type-badge {

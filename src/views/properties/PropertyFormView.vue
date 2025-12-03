@@ -109,22 +109,31 @@ async function handleSubmit() {
       area: parseFloat(form.value.area)
     }
     
+    // If files were selected, convert them to { filename, data } and include in JSON payload
+    if (imageFiles.value.length > 0) {
+      const images = await Promise.all(
+        imageFiles.value.map((file) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const result = reader.result || ''
+              const base64 = String(result).split(',')[1] || ''
+              resolve({ filename: file.name, data: base64 })
+            }
+            reader.onerror = (e) => reject(e)
+            reader.readAsDataURL(file)
+          })
+        )
+      )
+      if (images.length > 0) data.images = images
+    }
+
     if (isEditMode.value) {
       const id = parseInt(route.params.id)
       await propertiesStore.updateProperty(id, data)
-      
-      if (imageFiles.value.length > 0) {
-        await propertiesStore.uploadImages(id, imageFiles.value)
-      }
-      
       router.push(`/properties/${id}`)
     } else {
-      const newProperty = await propertiesStore.createProperty(data)
-      
-      if (imageFiles.value.length > 0 && newProperty?.id) {
-        await propertiesStore.uploadImages(newProperty.id, imageFiles.value)
-      }
-      
+      await propertiesStore.createProperty(data)
       router.push('/properties')
     }
     

@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/auth'
 import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
 import AlertMessage from '../../components/common/AlertMessage.vue'
 import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
+import ImageLightbox from '../../components/common/ImageLightbox.vue'
 import paginationConfig from '../../config/pagination'
 
 const route = useRoute()
@@ -21,6 +22,10 @@ const isAdmin = computed(() => authStore.isAdmin)
 const showDeleteDialog = ref(false)
 const isFavorite = ref(false)
 const favoriteLoading = ref(false)
+const selectedImageIndex = ref(0)
+const lightboxVisible = ref(false)
+const lightboxImages = ref([])
+const lightboxStartIndex = ref(0)
 
 onMounted(async () => {
   const id = parseInt(route.params.id)
@@ -35,7 +40,63 @@ watch(() => propertiesStore.currentProperty, (newVal) => {
   if (newVal && typeof newVal.is_favorited !== 'undefined') {
     isFavorite.value = !!newVal.is_favorited
   }
+  // reset selected image when property changes
+  selectedImageIndex.value = 0
 })
+
+function getImageSrcFromItem(img) {
+  if (!img) return null
+  if (img.url) return img.url
+  const data = img.data
+  const filename = img.filename || ''
+  if (data) {
+    const ext = filename.split('.').pop()?.toLowerCase() || ''
+    let mime = 'image/jpeg'
+    if (ext === 'png') mime = 'image/png'
+    else if (ext === 'webp') mime = 'image/webp'
+    else if (ext === 'gif') mime = 'image/gif'
+    else if (ext === 'svg') mime = 'image/svg+xml'
+    return `data:${mime};base64,${data}`
+  }
+  return null
+}
+
+function getMainImageSrc() {
+  const p = property.value
+  if (!p) return null
+  if (Array.isArray(p.images) && p.images.length > 0) {
+    return getImageSrcFromItem(p.images[selectedImageIndex.value])
+  }
+  return getImageSrcFromItem(p.image)
+}
+
+function buildImageSrcList() {
+  const p = property.value
+  if (!p) return []
+  const list = []
+  if (Array.isArray(p.images) && p.images.length > 0) {
+    for (const img of p.images) {
+      const src = getImageSrcFromItem(img)
+      if (src) list.push(src)
+    }
+  } else {
+    const s = getImageSrcFromItem(p.image)
+    if (s) list.push(s)
+  }
+  return list
+}
+
+function openLightbox(index = 0) {
+  lightboxImages.value = buildImageSrcList()
+  lightboxStartIndex.value = index
+  if (lightboxImages.value.length === 0) return
+  lightboxVisible.value = true
+}
+
+function onThumbClick(idx) {
+  selectedImageIndex.value = idx
+  openLightbox(idx)
+}
 
 function formatPrice(price) {
   return new Intl.NumberFormat('en-US', {
@@ -136,7 +197,8 @@ async function handleDelete() {
       <div class="property-layout">
         <div class="property-main">
           <div class="property-gallery">
-            <div class="gallery-main">
+            <div :class="['gallery-main', { 'has-image': getMainImageSrc() }]">
+              <img v-if="getMainImageSrc()" :src="getMainImageSrc()" :alt="property.title" class="gallery-img" @click.stop="openLightbox(selectedImageIndex)" />
               <span class="property-type-badge">
                 {{ getPropertyTypeName(property.type_id) }}
               </span>
@@ -144,6 +206,22 @@ async function handleDelete() {
                 {{ property.property_status }}
               </span>
             </div>
+
+            <div v-if="property.images && property.images.length" class="gallery-thumbs">
+              <button
+                v-for="(img, idx) in property.images"
+                :key="idx"
+                type="button"
+                class="thumb-button"
+                :class="{ active: selectedImageIndex === idx }"
+                @click.stop="onThumbClick(idx)"
+              >
+                <img v-if="getImageSrcFromItem(img)" :src="getImageSrcFromItem(img)" class="thumb-img" />
+                <span v-else class="thumb-placeholder">📷</span>
+              </button>
+            </div>
+
+            <ImageLightbox :images="lightboxImages" :startIndex="lightboxStartIndex" v-model="lightboxVisible" @close="lightboxVisible = false" />
           </div>
 
           <div class="property-info-card">
@@ -274,6 +352,60 @@ async function handleDelete() {
   content: '🏠';
   font-size: 8rem;
   opacity: 0.5;
+}
+
+.gallery-main.has-image::after {
+  display: none;
+}
+
+.gallery-main .gallery-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.gallery-main .property-type-badge,
+.gallery-main .property-status-badge {
+  z-index: 2;
+}
+
+.gallery-thumbs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.thumb-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  width: 72px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+}
+
+.thumb-button.active {
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+}
+
+.thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-placeholder {
+  font-size: 1.25rem;
+  opacity: 0.6;
 }
 
 .property-type-badge {
