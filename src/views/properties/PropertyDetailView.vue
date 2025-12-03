@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
@@ -24,7 +25,16 @@ const favoriteLoading = ref(false)
 onMounted(async () => {
   const id = parseInt(route.params.id)
   await propertiesStore.fetchProperty(id)
+  // initialize favorite state from backend field when available
+  isFavorite.value = !!propertiesStore.currentProperty?.is_favorited
   await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
+})
+
+// keep local isFavorite in sync when store updates currentProperty
+watch(() => propertiesStore.currentProperty, (newVal) => {
+  if (newVal && typeof newVal.is_favorited !== 'undefined') {
+    isFavorite.value = !!newVal.is_favorited
+  }
 })
 
 function formatPrice(price) {
@@ -63,7 +73,21 @@ async function toggleFavorite() {
   favoriteLoading.value = true
   try {
     const response = await propertiesStore.toggleFavorite(property.value.id)
-    isFavorite.value = response.status === 201
+    // Prefer server-returned `is_favorited` flag if present
+    if (response && response.data && typeof response.data.is_favorited !== 'undefined') {
+      isFavorite.value = !!response.data.is_favorited
+      // also update store's currentProperty if present
+      if (propertiesStore.currentProperty) {
+        propertiesStore.currentProperty.is_favorited = !!response.data.is_favorited
+      }
+    } else if (property.value && typeof property.value.is_favorited !== 'undefined') {
+      // toggle locally if backend didn't return explicit state
+      isFavorite.value = !property.value.is_favorited
+      propertiesStore.currentProperty.is_favorited = isFavorite.value
+    } else {
+      // fallback based on status codes (created/removed)
+      isFavorite.value = response && response.status === 201
+    }
   } catch (error) {
     console.error('Failed to toggle favorite:', error)
   } finally {
