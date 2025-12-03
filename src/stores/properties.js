@@ -9,6 +9,7 @@ export const usePropertiesStore = defineStore('properties', () => {
   const total = ref(0)
   const loading = ref(false)
   const error = ref(null)
+  const fieldErrors = ref({})
   const filters = ref({
     limit: paginationConfig.properties,
     offset: 0,
@@ -31,6 +32,45 @@ export const usePropertiesStore = defineStore('properties', () => {
   const currentPage = computed(() => Math.floor(filters.value.offset / filters.value.limit) + 1)
   const totalPages = computed(() => Math.ceil(total.value / filters.value.limit))
 
+  // Helper: map backend responses to safe, user-friendly messages
+  function handleResponseError(resp, opts = { context: 'request' }) {
+    // log full response for debugging (not shown to user)
+    try { console.error('[properties] API error', opts.context, resp?.status, resp?.data) } catch (e) {}
+
+    // default network error
+    if (!resp) return 'Сетевой или транспортный сбой. Проверьте подключение.'
+
+    // extract structured field errors if present (Swagger: ErrorResponse.details)
+    const details = resp.data?.details || resp.data?.fieldErrors || resp.data?.errors || {}
+    fieldErrors.value = details || {}
+
+    const status = resp.status
+    // map status codes to user-friendly, non-sensitive messages
+    switch (status) {
+      case 400:
+        return 'Некорректный запрос. Проверьте введённые данные.'
+      case 401:
+        return 'Требуется авторизация. Пожалуйста, войдите в систему.'
+      case 403:
+        return 'Недостаточно прав для выполнения операции.'
+      case 404:
+        return 'Запрошенный ресурс не найден.'
+      case 409:
+        return 'Конфликт данных. Возможно, запись уже существует.'
+      case 422:
+        // Geocoding specific errors — show a friendly explanation
+        if (resp.data?.error || resp.data?.details) {
+          return 'Не удалось определить координаты по указанному адресу. Проверьте адрес и попробуйте снова.'
+        }
+        return 'Невозможно обработать запрос. Проверьте входные данные.'
+      case 502:
+        return 'Внешний сервис геокодирования временно недоступен. Повторите попытку позже.'
+      case 500:
+      default:
+        return 'Внутренняя ошибка сервера. Попробуйте позже.'
+    }
+  }
+
   async function fetchProperties(customParams = {}) {
     loading.value = true
     error.value = null
@@ -49,7 +89,8 @@ export const usePropertiesStore = defineStore('properties', () => {
       total.value = response.data.total || 0
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch properties'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'fetchProperties' })
       throw err
     } finally {
       loading.value = false
@@ -65,7 +106,8 @@ export const usePropertiesStore = defineStore('properties', () => {
       currentProperty.value = response.data
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch property'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'fetchProperty' })
       throw err
     } finally {
       loading.value = false
@@ -77,11 +119,20 @@ export const usePropertiesStore = defineStore('properties', () => {
     error.value = null
 
     try {
+      // clear previous field errors
+      fieldErrors.value = {}
       const response = await propertiesApi.create(data)
-      await fetchProperties()
+      // Success (201)
+      if (response && response.status === 201) {
+        // optionally refresh list
+        await fetchProperties()
+        return response.data
+      }
+      // Unexpected but return data
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to create property'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'createProperty' })
       throw err
     } finally {
       loading.value = false
@@ -93,10 +144,21 @@ export const usePropertiesStore = defineStore('properties', () => {
     error.value = null
 
     try {
-      await propertiesApi.update(id, data)
-      await fetchProperties()
+      fieldErrors.value = {}
+      const response = await propertiesApi.update(id, data)
+      // Success (200) — update currentProperty if backend returned it
+      if (response && response.status === 200) {
+        if (response.data) {
+          currentProperty.value = response.data
+        }
+        // refresh list to reflect changes in listing
+        await fetchProperties()
+        return response.data
+      }
+      return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to update property'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'updateProperty' })
       throw err
     } finally {
       loading.value = false
@@ -111,7 +173,8 @@ export const usePropertiesStore = defineStore('properties', () => {
       await propertiesApi.delete(id)
       await fetchProperties()
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to delete property'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'deleteProperty' })
       throw err
     } finally {
       loading.value = false
@@ -123,7 +186,8 @@ export const usePropertiesStore = defineStore('properties', () => {
       const response = await propertiesApi.toggleFavorite(id)
       return response
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to toggle favorite'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'toggleFavorite' })
       throw err
     }
   }
@@ -135,7 +199,8 @@ export const usePropertiesStore = defineStore('properties', () => {
     try {
       await propertiesApi.uploadImages(id, files)
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to upload images'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'uploadImages' })
       throw err
     } finally {
       loading.value = false
@@ -147,7 +212,8 @@ export const usePropertiesStore = defineStore('properties', () => {
       const response = await propertiesApi.getImages(id)
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to get images'
+      const resp = err.response
+      error.value = handleResponseError(resp, { context: 'getImages' })
       throw err
     }
   }
@@ -182,6 +248,11 @@ export const usePropertiesStore = defineStore('properties', () => {
 
   function clearError() {
     error.value = null
+    fieldErrors.value = {}
+  }
+
+  function clearFieldErrors() {
+    fieldErrors.value = {}
   }
 
   return {
@@ -190,6 +261,7 @@ export const usePropertiesStore = defineStore('properties', () => {
     total,
     loading,
     error,
+    fieldErrors,
     filters,
     currentPage,
     totalPages,
@@ -204,6 +276,7 @@ export const usePropertiesStore = defineStore('properties', () => {
     setFilters,
     resetFilters,
     setPage,
-    clearError
+    clearError,
+    clearFieldErrors
   }
 })

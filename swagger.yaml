@@ -1,0 +1,1070 @@
+swagger: "2.0"
+info:
+  title: Estate Agency API
+  description: 'Enter the token as: "Bearer <token>" (include the word Bearer and a space)'
+  version: 0.0.1
+host: localhost:8080
+basePath: /
+schemes:
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+
+security:
+  - BearerAuth: []
+
+paths:
+  # -------------------- Properties --------------------
+  /properties:
+    get:
+      summary: List properties
+      tags: [properties]
+      description: Returns paginated list of properties. Requires authentication.
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          example: 10
+        - name: offset
+          in: query
+          type: integer
+          example: 0
+        - name: ids
+          in: query
+          type: string
+          example: "1,2,3"
+        - name: type_ids
+          in: query
+          type: string
+          example: "2,3"
+        - name: type_id
+          in: query
+          type: integer
+          example: 2
+        - name: transaction_type
+          in: query
+          type: string
+          example: "sale"
+        - name: city
+          in: query
+          type: string
+          example: "New York"
+        - name: property_status
+          in: query
+          type: string
+          example: "available"
+        - name: created_by
+          in: query
+          type: integer
+          example: 1
+        - name: min_price
+          in: query
+          type: number
+          example: 100000
+        - name: max_price
+          in: query
+          type: number
+          example: 500000
+        - name: min_area
+          in: query
+          type: number
+          example: 50
+        - name: max_area
+          in: query
+          type: number
+          example: 200
+        - name: search
+          in: query
+          type: string
+          example: "spacious"
+        - name: latitude
+          in: query
+          type: number
+          example: 40.7128
+        - name: longitude
+          in: query
+          type: number
+          example: -74.006
+        - name: radius_km
+          in: query
+          type: number
+          example: 5
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/propertyhandler.ListPropertiesResponseDoc'
+          examples:
+            application/json:
+              properties:
+                - id: 1
+                  title: "Luxury Apartment"
+                  property_description: "A spacious 3-bedroom apartment."
+                  type_id: 2
+                  transaction_type: "sale"
+                  price: 350000
+                  area: 120
+                  property_address: "123 Main Street"
+                  latitude: 40.7128
+                  longitude: -74.006
+                  city: "New York"
+                  property_status: "available"
+                  created_at: "2025-11-29T12:00:00Z"
+                  updated_at: "2025-11-29T12:00:00Z"
+              total: 1
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+    post:
+      summary: Create property
+      tags: [properties]
+      description: |
+        Create a new property. Requires admin role.
+
+        Адрес (`property_address`) должен быть корректным и непустым — при создании сервиса будут получены координаты (``latitude``, ``longitude``) с помощью Geoapify Geocoding API.
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/propertyhandler.PropertyCreateDoc'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/propertyhandler.PropertyDTODoc'
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "409":
+          description: Conflict
+        "422":
+          description: Unprocessable Entity — геокодирование не вернуло координаты
+          schema:
+            $ref: '#/definitions/GeocodingErrorResponse'
+        "502":
+          description: Bad Gateway — ошибка внешнего геосервиса
+          schema:
+            $ref: '#/definitions/GeocodingErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /properties/{id}:
+    get:
+      summary: Get property
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/propertyhandler.PropertyDTODoc'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+    patch:
+      summary: Partially update property
+      tags: [properties]
+      description: |
+        Partially update an existing property. Only provided fields will be changed. Requires admin role.
+
+        Example request (partial body):
+
+        {
+          "title": "Cozy studio near park",
+          "price": 120000,
+          "property_description": "Renovated studio, new windows."
+        }
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/propertyhandler.UpdatePropertyDoc'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/propertyhandler.PropertyDTODoc'
+          examples:
+            application/json:
+              id: 1
+              title: "Cozy studio near park"
+              property_description: "Renovated studio, new windows."
+              type_id: 2
+              transaction_type: "sale"
+              price: 120000
+              area: 30
+              property_address: "456 Park Ave"
+              latitude: 40.7128
+              longitude: -74.006
+              city: "New York"
+              property_status: "available"
+              created_at: "2025-11-29T12:00:00Z"
+              updated_at: "2025-11-29T12:00:00Z"
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+        "422":
+          description: Unprocessable Entity — геокодирование не вернуло координаты
+          schema:
+            $ref: '#/definitions/GeocodingErrorResponse'
+        "502":
+          description: Bad Gateway — ошибка внешнего геосервиса
+          schema:
+            $ref: '#/definitions/GeocodingErrorResponse'
+        "500":
+          description: Internal Server Error
+    delete:
+      summary: Delete property
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            properties:
+              deleted_id:
+                type: integer
+                example: 1
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+
+  /properties/{id}/favorites:
+    post:
+      summary: Toggle favorite
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/propertyhandler.PropertyDTODoc'
+        "204":
+          description: Removed
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+
+  /properties/{id}/images:
+    get:
+      summary: List images
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/propertyhandler.ImageDTODoc'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+        "501":
+          description: Not Implemented
+    put:
+      summary: Replace images
+      tags: [properties]
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+        - name: files
+          in: formData
+          description: |
+            New images to replace existing ones. Передавайте несколько файлов с полем `files` (multipart/form-data).
+            Для лучшей совместимости используем массив файлов: `type: array` с `items: { type: file }` и `collectionFormat: multi`.
+            Если ваш клиент/генератор не поддерживает массив файлов - используйте несколько полей `files`.
+          required: true
+          type: array
+          items:
+            type: file
+          collectionFormat: multi
+          x-files-multiple: true
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal Server Error
+        "501":
+          description: Not Implemented
+
+  # -------------------- Property Types --------------------
+  /property_types:
+    get:
+      summary: List property types
+      tags: [property_types]
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          example: 10
+        - name: offset
+          in: query
+          type: integer
+          example: 0
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/propertytypehandler.ListPropertyTypesResponseDoc'
+        "401":
+          description: Unauthorized
+        "500":
+          description: Internal Server Error
+    post:
+      summary: Create property type
+      tags: [property_types]
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/propertytypehandler.CreatePropertyTypeDoc'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/propertytypehandler.PropertyTypeDTODoc'
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "409":
+          description: Conflict
+        "500":
+          description: Internal Server Error
+
+  /property_types/{id}:
+    get:
+      summary: Get property type
+      tags: [property_types]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/propertytypehandler.PropertyTypeDTODoc'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+    patch:
+      summary: Partially update property type
+      tags: [property_types]
+      description: |
+        Partially update an existing property type. Only provided fields will be changed. Requires admin role.
+
+        Example request (partial body):
+
+        {
+          "name": "NewType"
+        }
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/propertytypehandler.UpdatePropertyTypeDoc'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/propertytypehandler.PropertyTypeDTODoc'
+          examples:
+            application/json:
+              id: 1
+              name: "UpdatedType"
+              created_at: "2025-11-29T12:00:00Z"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+    delete:
+      summary: Delete property type
+      tags: [property_types]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+
+# -------------------- Users --------------------
+  /users:
+    get:
+      summary: List users
+      tags: [users]
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          example: 10
+        - name: offset
+          in: query
+          type: integer
+          example: 0
+        - name: ids
+          in: query
+          type: string
+          example: "1,2,3"
+        - name: email
+          in: query
+          type: string
+          example: "user@example.com"
+        - name: role
+          in: query
+          type: string
+          example: "client"
+        - name: is_active
+          in: query
+          type: boolean
+          example: true
+        - name: search
+          in: query
+          type: string
+          example: "john"
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userhandler.ListUsersResponseDoc'
+        "401":
+          description: Unauthorized
+        "500":
+          description: Internal Server Error
+
+  /users/register:
+    post:
+      summary: Register user
+      tags: [users]
+      security: []
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/userhandler.RegisterRequestDoc'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/userhandler.PublicUserDoc'
+        "400":
+          description: Invalid request
+        "409":
+          description: Conflict
+        "500":
+          description: Internal Server Error
+
+  /users/login:
+    post:
+      summary: User login
+      tags: [users]
+      security: []
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/userhandler.LoginRequestDoc'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userhandler.LoginResponseDoc'
+          examples:
+            application/json:
+              user:
+                id: 1
+                email: "user@example.com"
+                first_name: "John"
+                last_name: "Doe"
+                role: "user"
+                is_active: true
+                created_at: "2025-11-29T12:00:00Z"
+                updated_at: "2025-11-29T12:00:00Z"
+              access_token: "eyJhbGciOiJIUzI1..."
+              refresh_token: "dGhpc2lzYXJlZnJlc2h0b2tlbg=="
+              expires_at: "2025-11-29T14:00:00Z"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+  /users/{id}:
+    get:
+      summary: Get user
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userhandler.PublicUserDoc'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+    delete:
+      summary: Delete user
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal Server Error
+
+  /users/{id}/profile:
+    patch:
+      summary: Update user profile
+      description: "Partially update user profile. Only provided fields will be changed. Requires owner or admin privileges. Returns the updated user." 
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/userhandler.UpdateProfileRequestDoc'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userhandler.PublicUserDoc'
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal Server Error
+
+  /users/{id}/password:
+    patch:
+      summary: Change user password
+      tags: [users]
+      description: "Change user password. If performed successfully the updated user is returned. Admins can change other users' passwords."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/userhandler.ChangePasswordRequestDoc'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userhandler.PublicUserDoc'
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "500":
+          description: Internal Server Error
+
+  /users/{id}/role:
+    patch:
+      summary: Change user role
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/userhandler.RoleRequestDoc'
+      responses:
+        "200":
+          description: OK — returns the updated user with new role
+          schema:
+            $ref: '#/definitions/userhandler.PublicUserDoc'
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal Server Error
+
+  /users/{id}/active:
+    patch:
+      summary: Set user active status (toggle)
+      tags: [users]
+      description: "Toggle the user's active status and return the updated user. If the user was active, they become inactive and vice-versa."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userhandler.PublicUserDoc'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal Server Error
+
+  /users/{id}/favorites:
+    get:
+      summary: List user favorites
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          example: 1
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userhandler.ListFavoritesResponseDoc'
+          examples:
+            application/json:
+              favorites:
+                - id: 1
+                  title: "Luxury Apartment"
+                  property_description: "A spacious 3-bedroom apartment."
+                  type_id: 2
+                  transaction_type: "sale"
+                  price: 350000
+                  area: 120
+                  property_address: "123 Main Street"
+                  latitude: 40.7128
+                  longitude: -74.006
+                  city: "New York"
+                  property_status: "available"
+                  created_at: "2025-11-29T12:00:00Z"
+                  updated_at: "2025-11-29T12:00:00Z"
+              total: 1
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "500":
+          description: Internal Server Error
+        "501":
+          description: Not Implemented
+
+  # -------------------- Tokens --------------------
+  /tokens/refresh:
+    post:
+      summary: Refresh token
+      tags: [tokens]
+      security: []
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/auth.RefreshRequestDoc'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userhandler.LoginResponseDoc'
+          examples:
+            application/json:
+              user:
+                id: 1
+                email: "user@example.com"
+                first_name: "John"
+                last_name: "Doe"
+                role: "user"
+                is_active: true
+                created_at: "2025-11-29T12:00:00Z"
+                updated_at: "2025-11-29T12:00:00Z"
+              access_token: "eyJhbGciOiJIUzI1..."
+              refresh_token: "dGhpc2lzYXJlZnJlc2h0b2tlbg=="
+              expires_at: "2025-11-29T14:00:00Z"
+        "400":
+          description: Bad Request
+        "401":
+          description: Invalid refresh token
+
+# -------------------- Definitions --------------------
+definitions:
+  propertyhandler.PropertyDTODoc:
+    type: object
+    properties:
+      id: { type: integer, example: 1 }
+      title: { type: string, example: "Luxury Apartment" }
+      property_description: { type: string, example: "A spacious 3-bedroom apartment." }
+      type_id: { type: integer, example: 2 }
+      transaction_type: { type: string, example: "sale" }
+      price: { type: number, example: 350000 }
+      area: { type: number, example: 120 }
+      property_address: { type: string, example: "123 Main Street", description: "Должен быть корректным, непустым адрес. Координаты (latitude, longitude) вычисляются с помощью Geoapify Geocoding API при создании/обновлении." }
+      latitude: { type: number, example: 40.7128 }
+      longitude: { type: number, example: -74.006 }
+      city: { type: string, example: "New York" }
+      property_status: { type: string, example: "available" }
+      is_favorited: { type: boolean, example: false }
+      created_at: { type: string, format: date-time, example: "2025-11-29T12:00:00Z" }
+      updated_at: { type: string, format: date-time, example: "2025-11-29T12:00:00Z" }
+
+  propertyhandler.PropertyCreateDoc:
+    type: object
+    required:
+      - title
+      - property_description
+      - price
+      - area
+      - city
+      - property_address
+      - transaction_type
+      - type_id
+    properties:
+      title: { type: string, example: "Luxury Apartment" }
+      property_description: { type: string, example: "A spacious 3-bedroom apartment." }
+      type_id: { type: integer, example: 2 }
+      transaction_type: { type: string, example: "sale" }
+      price: { type: number, example: 350000 }
+      area: { type: number, example: 120 }
+      property_address: { type: string, example: "123 Main Street", description: "Должен быть корректным, непустым адрес. Координаты (latitude, longitude) вычисляются с помощью Geoapify Geocoding API при создании/обновлении." }
+      city: { type: string, example: "New York" }
+
+  propertyhandler.UpdatePropertyDoc:
+    type: object
+    properties:
+      title: { type: string, example: "Luxury Apartment" }
+      property_description: { type: string, example: "A spacious 3-bedroom apartment." }
+      type_id: { type: integer, example: 2 }
+      transaction_type: { type: string, example: "sale" }
+      price: { type: number, example: 350000 }
+      area: { type: number, example: 120 }
+      property_address: { type: string, example: "123 Main Street", description: "Должен быть корректным, непустым адрес. Координаты (latitude, longitude) вычисляются с помощью Geoapify Geocoding API при создании/обновлении." }
+      city: { type: string, example: "New York" }
+      property_status: { type: string, example: "available" }
+
+  propertyhandler.ListPropertiesResponseDoc:
+    type: object
+    properties:
+      properties:
+        type: array
+        items:
+          $ref: '#/definitions/propertyhandler.PropertyDTODoc'
+      total: { type: integer, example: 42 }
+
+  propertyhandler.ImageFileDoc:
+    type: object
+    properties:
+      filename: { type: string, example: "photo1.jpg" }
+      data: { type: string, format: byte, example: "base64encodedstring==" }
+
+  propertyhandler.ImageDTODoc:
+    type: object
+    properties:
+      property_id: { type: integer, example: 1 }
+      files:
+        type: array
+        items:
+          $ref: '#/definitions/propertyhandler.ImageFileDoc'
+
+  propertyhandler.FavoriteDTODoc:
+    type: object
+    properties:
+      user_id: { type: integer, example: 1 }
+      property_id: { type: integer, example: 1 }
+      created_at: { type: string, format: date-time, example: "2025-11-29T12:00:00Z" }
+
+  propertytypehandler.PropertyTypeDTODoc:
+    type: object
+    properties:
+      id: { type: integer, example: 1 }
+      name: { type: string, example: "Apartment" }
+      created_at: { type: string, format: date-time, example: "2025-11-29T12:00:00Z" }
+
+  propertytypehandler.ListPropertyTypesResponseDoc:
+    type: object
+    properties:
+      types:
+        type: array
+        items:
+          $ref: '#/definitions/propertytypehandler.PropertyTypeDTODoc'
+      total: { type: integer, example: 3 }
+
+  propertytypehandler.CreatePropertyTypeDoc:
+    type: object
+    required:
+      - name
+    properties:
+      name: { type: string, example: "Apartment" }
+
+  propertytypehandler.UpdatePropertyTypeDoc:
+    type: object
+    properties:
+      name: { type: string, example: "Apartment" }
+
+  userhandler.RegisterRequestDoc:
+    type: object
+    required:
+      - email
+      - password
+      - first_name
+      - last_name
+    properties:
+      email: { type: string, example: "user@example.com" }
+      password: { type: string, example: "secretpassword" }
+      first_name: { type: string, example: "John" }
+      last_name: { type: string, example: "Doe" }
+      phone_number: { type: string, example: "+1234567890", nullable: true }
+
+  userhandler.PublicUserDoc:
+    type: object
+    properties:
+      id: { type: integer, example: 1 }
+      email: { type: string, example: "user@example.com" }
+      first_name: { type: string, example: "John" }
+      last_name: { type: string, example: "Doe" }
+      phone_number: { type: string, example: "+1234567890", nullable: true }
+      role: { type: string, example: "user" }
+      is_active: { type: boolean, example: true }
+      created_at: { type: string, format: date-time, example: "2025-11-29T12:00:00Z" }
+      updated_at: { type: string, format: date-time, example: "2025-11-29T12:00:00Z" }
+
+  userhandler.UpdateProfileRequestDoc:
+    type: object
+    properties:
+      email: { type: string, example: "user@example.com" }
+      first_name: { type: string, example: "John" }
+      last_name: { type: string, example: "Doe" }
+      phone_number: { type: string, example: "+1234567890", nullable: true }
+      
+
+  userhandler.ChangePasswordRequestDoc:
+    type: object
+    properties:
+      current_password: { type: string, example: "oldpass123" }
+      new_password: { type: string, example: "newpass456" }
+
+  userhandler.RoleRequestDoc:
+    type: object
+    properties:
+      role: { type: string, example: "admin" }
+
+  userhandler.LoginRequestDoc:
+    type: object
+    properties:
+      email: { type: string, example: "user@example.com" }
+      password: { type: string, example: "secretpassword" }
+
+  userhandler.LoginResponseDoc:
+    type: object
+    properties:
+      user:
+        $ref: '#/definitions/userhandler.PublicUserDoc'
+      access_token: { type: string, example: "eyJhbGciOiJIUzI1..." }
+      refresh_token: { type: string, example: "dGhpc2lzYXJlZnJlc2h0b2tlbg==" }
+      expires_at: { type: string, format: date-time, example: "2025-11-29T14:00:00Z" }
+    userhandler.ListFavoritesResponseDoc:
+      type: object
+      properties:
+        favorites:
+          type: array
+          items:
+            $ref: '#/definitions/propertyhandler.PropertyDTODoc'
+        total: { type: integer, example: 2 }
+
+  userhandler.ListUsersResponseDoc:
+    type: object
+    properties:
+      users:
+        type: array
+        items:
+          $ref: '#/definitions/userhandler.PublicUserDoc'
+      total: { type: integer, example: 5 }
+
+  auth.RefreshRequestDoc:
+    type: object
+    properties:
+      refresh_token: { type: string, example: "dGhpc2lzYXJlZnJlc2h0b2tlbg==" }
+
+  ErrorResponse:
+    type: object
+    properties:
+      code: { type: integer, example: 400 }
+      message: { type: string, example: "Invalid request parameters" }
+      details:
+        type: object
+        additionalProperties:
+          type: string
+
+  GeocodingErrorResponse:
+    type: object
+    properties:
+      error: { type: string, example: "ошибка геокодирования: external service error" }
+      provider: { type: string, example: "geoapify" }
+      code: { type: string, example: "request" }
+      details: { type: string, example: "timeout while connecting to geo service" }
+      address: { type: string, example: "123 Main Street" }
+      status_code: { type: integer, example: 504, nullable: true }
+
+securityDefinitions:
+  BearerAuth:
+    type: apiKey
+    name: Authorization
+    in: header
