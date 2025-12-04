@@ -211,7 +211,7 @@ function handlePageChange(page) {
 function formatPrice(price) {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'RUB',
     maximumFractionDigits: 0
   }).format(price)
 }
@@ -480,9 +480,9 @@ function openPropertyLightbox(property, start = 0) {
               <span class="property-area">📐 {{ property.area }} m²</span>
               <span class="property-transaction">{{ txLabel(property.transaction_type) }}</span>
             </div>
-            <div class="property-price">
+              <div class="property-price">
               {{ formatPrice(property.price) }}
-              <span v-if="property.transaction_type === 'rent'" class="price-period">/мес</span>
+              <span v-if="property.transaction_type === 'rent'" class="price-period">/сутки</span>
             </div>
           </div>
         </RouterLink>

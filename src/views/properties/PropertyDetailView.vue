@@ -133,7 +133,7 @@ function onThumbClick(idx) {
 function formatPrice(price) {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'RUB',
     maximumFractionDigits: 0
   }).format(price)
 }
@@ -291,7 +291,7 @@ async function handleDelete() {
 
             <div class="property-price-section">
               <span class="property-price">{{ formatPrice(property.price) }}</span>
-              <span v-if="property.transaction_type === 'rent'" class="price-period">/мес</span>
+              <span v-if="property.transaction_type === 'rent'" class="price-period">/сутки</span>
               <span class="transaction-badge">{{ txLabel(property.transaction_type) }}</span>
             </div>
 

@@ -76,7 +76,7 @@ async function removeFavorite(propertyId) {
 function formatPrice(price) {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'RUB',
     maximumFractionDigits: 0
   }).format(price)
 }
@@ -212,7 +212,7 @@ function openPropertyLightbox(property, start = 0) {
               </div>
               <div class="property-price">
                 {{ formatPrice(property.price) }}
-                <span v-if="property.transaction_type === 'rent'" class="price-period">/month</span>
+                <span v-if="property.transaction_type === 'rent'" class="price-period">/сутки</span>
               </div>
             </div>
           </RouterLink>

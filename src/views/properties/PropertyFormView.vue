@@ -423,7 +423,7 @@ function goBack() {
 
         <div class="form-row">
           <div class="form-group">
-            <label for="price" class="form-label">Цена (USD) *</label>
+            <label for="price" class="form-label">Цена (₽) *</label>
             <input
               id="price"
               v-model.number="form.price"
@@ -507,20 +507,32 @@ function goBack() {
         
         <div class="form-group">
           <label for="images" class="form-label">Изображения объекта</label>
-          <input
-            id="images"
-            type="file"
-            accept="image/png, image/jpeg"
-            multiple
-            class="form-input"
-            ref="fileInput"
-            @change="handleFileChange"
-          />
-          <div style="margin-top:0.5rem;">
-            <button v-if="isEditMode && imageFiles.length > 0" type="button" class="btn btn-outline" @click="clearImages">Очистить изображения</button>
+
+          <div class="file-picker">
+            <!-- скрытый нативный input, доступный через label (for="images") -->
+            <input
+              id="images"
+              type="file"
+              accept="image/png, image/jpeg"
+              multiple
+              ref="fileInput"
+              class="file-input-hidden"
+              @change="handleFileChange"
+            />
+
+            <label for="images" class="file-picker-button" aria-hidden="false">
+              <span class="file-icon">📁</span>
+              <span class="file-text">Выбрать изображения</span>
+              <small class="file-hint">PNG, JPG — до 10 файлов</small>
+            </label>
+
+            <div style="margin-top:0.5rem;">
+              <button v-if="isEditMode && imageFiles.length > 0" type="button" class="btn btn-outline" @click="clearImages">Очистить изображения</button>
+            </div>
+
+            <span class="form-hint">Загрузите изображения объекта (необязательно)</span>
+            <span v-if="errors.images" class="error-text">{{ errors.images }}</span>
           </div>
-          <span class="form-hint">Загрузите изображения объекта (необязательно)</span>
-          <span v-if="errors.images" class="error-text">{{ errors.images }}</span>
         </div>
 
         <div v-if="imageFiles.length > 0" class="image-preview-list">
@@ -661,6 +673,48 @@ function goBack() {
 .form-hint {
   color: #6b7280;
   font-size: 0.875rem;
+}
+
+/* Styled file picker */
+.file-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.file-input-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+.file-picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  background: linear-gradient(90deg,#2563eb,#1e40af);
+  color: #fff;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+}
+.file-picker-button:hover {
+  filter: brightness(0.95);
+}
+.file-icon {
+  font-size: 1.1rem;
+}
+.file-hint {
+  margin-left: 0.5rem;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.75rem;
 }
 
 .image-preview-list {
