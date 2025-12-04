@@ -11,7 +11,7 @@
 </template>
 
 <script setup>
-import { computed, watch, ref } from 'vue'
+import { computed, watch, ref, onMounted, onUnmounted } from 'vue'
 const props = defineProps({
   images: { type: Array, default: () => [] },
   startIndex: { type: Number, default: 0 },
@@ -60,9 +60,17 @@ function onKey(e) {
   if (e.key === 'ArrowRight') next()
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', onKey)
-}
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', onKey)
+  }
+})
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    try { window.removeEventListener('keydown', onKey) } catch (e) {}
+  }
+})
 </script>
 
 <style scoped>
@@ -120,5 +128,29 @@ if (typeof window !== 'undefined') {
 .lightbox-caption {
   margin-top: 0.5rem;
   color: #fff;
+}
+
+/* Make arrows visible and easy to tap on small screens */
+@media (max-width: 900px) {
+  .lightbox-prev, .lightbox-next {
+    left: 8px;
+    right: 8px;
+    width: 52px;
+    height: 52px;
+    font-size: 28px;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border-radius: 10px;
+    z-index: 1010;
+  }
+  .lightbox-prev { left: 12px; right: auto }
+  .lightbox-next { right: 12px; left: auto }
+}
+
+@media (max-width: 420px) {
+  .lightbox-prev, .lightbox-next {
+    width: 48px;
+    height: 48px;
+  }
 }
 </style>

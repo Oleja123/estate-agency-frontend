@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi, usersApi } from '../api'
+import router from '../router'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(JSON.parse(localStorage.getItem('user')) || null)
@@ -80,7 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return data
     } catch (err) {
-      logout()
+      await logout()
       throw err
     }
   }
@@ -97,16 +98,38 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
-    user.value = null
-    accessToken.value = null
-    refreshToken.value = null
-    error.value = null
-    fieldErrors.value = {}
+  async function logout() {
+    loading.value = true
+    try {
+      // attempt to inform backend to revoke refresh token; ignore network errors
+      if (refreshToken.value) {
+        try {
+          await authApi.logout(refreshToken.value)
+        } catch (e) {
+          // Log but don't block logout flow; server may already have invalidated token
+          console.warn('logout API call failed:', e)
+        }
+      }
+    } finally {
+      // clear local auth state regardless of API result
+      user.value = null
+      accessToken.value = null
+      refreshToken.value = null
+      error.value = null
+      fieldErrors.value = {}
 
-    localStorage.removeItem('user')
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+
+      loading.value = false
+      // navigate to login page after logout
+      try {
+        router.push({ name: 'login' })
+      } catch (e) {
+        console.warn('Router navigation to login failed:', e)
+      }
+    }
   }
 
   function clearError() {

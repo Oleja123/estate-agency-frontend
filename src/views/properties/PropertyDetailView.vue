@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { usePropertiesStore } from '../../stores/properties'
@@ -26,6 +26,31 @@ const selectedImageIndex = ref(0)
 const lightboxVisible = ref(false)
 const lightboxImages = ref([])
 const lightboxStartIndex = ref(0)
+// responsive thumbnails
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200)
+
+function updateWindowWidth() {
+  if (typeof window === 'undefined') return
+  windowWidth.value = window.innerWidth
+}
+
+const visibleThumbCount = computed(() => {
+  const total = (property.value && Array.isArray(property.value.images)) ? property.value.images.length : 0
+  if (windowWidth.value <= 420) return Math.min(2, total)
+  if (windowWidth.value <= 640) return Math.min(3, total)
+  if (windowWidth.value <= 900) return Math.min(4, total)
+  return total
+})
+
+const visibleImages = computed(() => {
+  if (!property.value || !Array.isArray(property.value.images)) return []
+  return property.value.images.slice(0, visibleThumbCount.value)
+})
+
+const hiddenCount = computed(() => {
+  const total = (property.value && Array.isArray(property.value.images)) ? property.value.images.length : 0
+  return Math.max(0, total - visibleImages.value.length)
+})
 
 onMounted(async () => {
   const id = parseInt(route.params.id)
@@ -33,6 +58,13 @@ onMounted(async () => {
   // initialize favorite state from backend field when available
   isFavorite.value = !!propertiesStore.currentProperty?.is_favorited
   await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
+  // setup responsive thumbnail listener
+  updateWindowWidth()
+  window.addEventListener('resize', updateWindowWidth)
+})
+
+onUnmounted(() => {
+  try { window.removeEventListener('resize', updateWindowWidth) } catch (e) {}
 })
 
 // keep local isFavorite in sync when store updates currentProperty
@@ -209,7 +241,7 @@ async function handleDelete() {
 
             <div v-if="property.images && property.images.length" class="gallery-thumbs">
               <button
-                v-for="(img, idx) in property.images"
+                v-for="(img, idx) in visibleImages"
                 :key="idx"
                 type="button"
                 class="thumb-button"
@@ -218,6 +250,19 @@ async function handleDelete() {
               >
                 <img v-if="getImageSrcFromItem(img)" :src="getImageSrcFromItem(img)" class="thumb-img" />
                 <span v-else class="thumb-placeholder">📷</span>
+              </button>
+
+              <button
+                v-if="hiddenCount > 0"
+                type="button"
+                class="thumb-button thumb-more"
+                @click.stop="openLightbox(visibleImages.length)"
+                :aria-label="`Show ${hiddenCount} more images`"
+              >
+                <!-- show the first hidden image as background if available -->
+                <img v-if="getImageSrcFromItem(property.images[visibleImages.length])" :src="getImageSrcFromItem(property.images[visibleImages.length])" class="thumb-img" />
+                <span v-else class="thumb-placeholder">📷</span>
+                <span class="more-count">+{{ hiddenCount }}</span>
               </button>
             </div>
 
@@ -406,6 +451,24 @@ async function handleDelete() {
 .thumb-placeholder {
   font-size: 1.25rem;
   opacity: 0.6;
+}
+
+.thumb-more {
+  position: relative;
+  background: #e5e7eb;
+}
+
+.thumb-more .more-count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  background: rgba(0,0,0,0.45);
+  border-radius: 6px;
 }
 
 .property-type-badge {

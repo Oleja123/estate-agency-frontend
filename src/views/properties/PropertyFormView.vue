@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
@@ -30,7 +30,64 @@ const form = ref({
 const errors = ref({})
 const loading = ref(false)
 const success = ref(false)
+// imageFiles holds mixed items: { isNew: true, file: File } or { isNew: false, filename, data }
 const imageFiles = ref([])
+const fileInput = ref(null)
+const dragIndex = ref(null)
+
+function base64ToFile(base64Data, filename) {
+  // base64Data is raw base64 string (no data:... prefix)
+  const ext = (filename || '').split('.').pop()?.toLowerCase() || 'jpg'
+  let mime = 'image/jpeg'
+  if (ext === 'png') mime = 'image/png'
+  else if (ext === 'webp') mime = 'image/webp'
+  else if (ext === 'gif') mime = 'image/gif'
+  else if (ext === 'svg') mime = 'image/svg+xml'
+
+  try {
+    const binary = atob(base64Data)
+    const arr = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      arr[i] = binary.charCodeAt(i)
+    }
+    return new File([arr], filename || `image.${ext}`, { type: mime })
+  } catch (e) {
+    // fallback: return a Blob wrapped as File without type
+    const blob = new Blob([], { type: mime })
+    return new File([blob], filename || `image.${ext}`)
+  }
+}
+
+function getPreviewUrl(file) {
+  if (!file) return ''
+  // if this is a new File wrapper
+  if (file.isNew && file.file) {
+    if (!file.__preview) {
+      try { file.__preview = URL.createObjectURL(file.file) } catch (e) { file.__preview = '' }
+    }
+    return file.__preview
+  }
+  // existing image with base64 data
+  if (!file.isNew && file.data) {
+    return `data:image/*;base64,${file.data}`
+  }
+  // fallback for raw File objects
+  if (file instanceof File) {
+    if (!file.__preview) {
+      try { file.__preview = URL.createObjectURL(file) } catch (e) { file.__preview = '' }
+    }
+    return file.__preview
+  }
+  return ''
+}
+
+function revokePreview(file) {
+  if (!file) return
+  if (file.isNew && file.__preview) {
+    try { URL.revokeObjectURL(file.__preview) } catch (e) {}
+    delete file.__preview
+  }
+}
 
 const transactionTypes = ['sale', 'rent']
 const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
@@ -54,9 +111,21 @@ onMounted(async () => {
         city: p.city || '',
         property_status: p.property_status || 'active'
       }
+      // load existing images preserving order
+      if (Array.isArray(p.images) && p.images.length > 0) {
+        imageFiles.value = p.images.map(img => ({ isNew: false, filename: img.filename || '', data: img.data || '' }))
+      }
     }
   }
 })
+
+function clearImages() {
+  // confirm destructive action
+  const ok = typeof window !== 'undefined' ? window.confirm('Clear all images for this property? This will remove them on the server when you save.') : true
+  if (!ok) return
+  // clear local list immediately; on save we'll sync to server
+  imageFiles.value = []
+}
 
 function validateForm() {
   errors.value = {}
@@ -109,32 +178,45 @@ async function handleSubmit() {
       area: parseFloat(form.value.area)
     }
     
-    // If files were selected, convert them to { filename, data } and include in JSON payload
-    if (imageFiles.value.length > 0) {
-      const images = await Promise.all(
-        imageFiles.value.map((file) =>
-          new Promise((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = () => {
-              const result = reader.result || ''
-              const base64 = String(result).split(',')[1] || ''
-              resolve({ filename: file.name, data: base64 })
-            }
-            reader.onerror = (e) => reject(e)
-            reader.readAsDataURL(file)
-          })
-        )
-      )
-      if (images.length > 0) data.images = images
-    }
-
+    // Create or update property first. Image files (if any) are uploaded
+    // separately via multipart/form-data to the images endpoint so the
+    // backend receives them under the `files` field as expected.
+    let savedId = null
     if (isEditMode.value) {
       const id = parseInt(route.params.id)
-      await propertiesStore.updateProperty(id, data)
-      router.push(`/properties/${id}`)
+      const resp = await propertiesStore.updateProperty(id, data)
+      // updateProperty may return updated property; fall back to route param
+      savedId = resp?.id || id
     } else {
-      await propertiesStore.createProperty(data)
-      router.push('/properties')
+      const resp = await propertiesStore.createProperty(data)
+      // createProperty should return created resource (containing id)
+      savedId = resp?.id
+    }
+
+    // Build File objects array in order: convert existing base64 items to File
+    const filesToUpload = imageFiles.value.map(item => {
+      if (item.isNew && item.file) return item.file
+      if (!item.isNew && item.data) return base64ToFile(item.data, item.filename)
+      return null
+    }).filter(Boolean)
+
+    // If editing, always attempt to sync images (even empty list) so server can clear them.
+    // If creating, only upload when there are files.
+    if (savedId && (isEditMode.value || filesToUpload.length > 0)) {
+      try {
+        await propertiesStore.uploadImages(savedId, filesToUpload)
+      } catch (err) {
+        // If uploadImages fails (e.g. backend rejects empty multipart), surface error but continue navigation
+        console.error('Failed to upload/replace images:', err)
+      }
+    }
+
+    // Navigate after successful save and optional image upload
+    if (savedId) {
+      router.push(isEditMode.value ? `/properties/${savedId}` : '/properties')
+    } else {
+      // Fallback navigation
+      router.push(isEditMode.value ? `/properties/${route.params.id}` : '/properties')
     }
     
     success.value = true
@@ -152,12 +234,88 @@ async function handleSubmit() {
 }
 
 function handleFileChange(event) {
-  const files = Array.from(event.target.files)
-  imageFiles.value = files
+  const files = Array.from(event.target.files || [])
+  const goodFiles = []
+  const maxFiles = 10
+  // Append new files to existing selection, up to maxFiles total.
+  // Only accept PNG and JPEG (jpg) images.
+  const allowed = new Set(['image/png', 'image/jpeg'])
+  const slots = Math.max(0, maxFiles - imageFiles.value.length)
+  const rejected = []
+  for (const f of files) {
+    if (!f.type || !allowed.has(f.type)) {
+      rejected.push(f.name)
+      continue
+    }
+    if (goodFiles.length >= slots) break
+    goodFiles.push(f)
+  }
+
+  // Warn if user tried to add more files than available slots
+  if (files.length > slots && slots <= 0) {
+    errors.value.images = `Достигнут лимит: допускается максимум ${maxFiles} файлов.`
+  } else if (files.length > slots) {
+    errors.value.images = `Можно добавить только ${slots} файлов; остальные будут проигнорированы.`
+  } else if (rejected.length > 0) {
+    errors.value.images = `Допускаются только PNG и JPG/JPEG: ${rejected.join(', ')}`
+  } else {
+    delete errors.value.images
+  }
+
+  // append to existing array as new wrappers
+  const wrapped = goodFiles.map(f => ({ isNew: true, file: f }))
+  imageFiles.value = [...imageFiles.value, ...wrapped]
+  // clear native file input so the same file(s) can be selected again
+  if (fileInput.value) fileInput.value.value = ''
 }
 
 function removeImage(index) {
-  imageFiles.value.splice(index, 1)
+  const [removed] = imageFiles.value.splice(index, 1)
+  revokePreview(removed)
+  // keep native input cleared to reflect current selection
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+onBeforeUnmount(() => {
+  for (const f of imageFiles.value) revokePreview(f)
+})
+
+function moveImageUp(index) {
+  if (index <= 0) return
+  const files = [...imageFiles.value]
+  const [moved] = files.splice(index, 1)
+  files.splice(index - 1, 0, moved)
+  imageFiles.value = files
+}
+
+function moveImageDown(index) {
+  if (index >= imageFiles.value.length - 1) return
+  const files = [...imageFiles.value]
+  const [moved] = files.splice(index, 1)
+  files.splice(index + 1, 0, moved)
+  imageFiles.value = files
+}
+
+function onDragStart(e, index) {
+  dragIndex.value = index
+  try { e.dataTransfer.setData('text/plain', String(index)) } catch (err) {}
+}
+
+function onDragOver(e) {
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+}
+
+function onDrop(e, index) {
+  e.preventDefault()
+  const srcStr = e.dataTransfer.getData('text/plain')
+  const src = srcStr !== '' ? parseInt(srcStr, 10) : dragIndex.value
+  if (isNaN(src) || src === index) return
+  const files = [...imageFiles.value]
+  const [moved] = files.splice(src, 1)
+  files.splice(index, 0, moved)
+  imageFiles.value = files
+  dragIndex.value = null
 }
 
 function goBack() {
@@ -346,18 +504,38 @@ function goBack() {
           <input
             id="images"
             type="file"
-            accept="image/*"
+            accept="image/png, image/jpeg"
             multiple
             class="form-input"
+            ref="fileInput"
             @change="handleFileChange"
           />
+          <div style="margin-top:0.5rem;">
+            <button v-if="isEditMode && imageFiles.length > 0" type="button" class="btn btn-outline" @click="clearImages">Clear images</button>
+          </div>
           <span class="form-hint">Upload images of the property (optional)</span>
+          <span v-if="errors.images" class="error-text">{{ errors.images }}</span>
         </div>
 
         <div v-if="imageFiles.length > 0" class="image-preview-list">
-          <div v-for="(file, index) in imageFiles" :key="index" class="image-preview">
-            <span>{{ file.name }}</span>
-            <button type="button" @click="removeImage(index)" class="remove-image">×</button>
+          <div
+            v-for="(file, index) in imageFiles"
+            :key="index"
+            class="image-preview"
+            draggable="true"
+            @dragstart="onDragStart($event, index)"
+            @dragover="onDragOver"
+            @drop="onDrop($event, index)"
+          >
+            <div class="image-preview-left">
+              <img v-if="getPreviewUrl(file)" :src="getPreviewUrl(file)" class="image-thumb" alt="preview" />
+              <span class="image-name">{{ file.isNew ? (file.file && file.file.name) : file.filename }}</span>
+            </div>
+            <div class="image-preview-actions">
+              <button type="button" class="btn-move" @click="moveImageUp(index)" :disabled="index === 0" title="Move up">▲</button>
+              <button type="button" class="btn-move" @click="moveImageDown(index)" :disabled="index === imageFiles.length - 1" title="Move down">▼</button>
+              <button type="button" @click="removeImage(index)" class="remove-image" title="Remove">×</button>
+            </div>
           </div>
         </div>
       </div>
@@ -493,6 +671,41 @@ function goBack() {
   padding: 0.5rem 1rem;
   background: #f3f4f6;
   border-radius: 6px;
+}
+
+.image-preview-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.image-thumb {
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.image-name {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-move {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
 }
 
 .remove-image {

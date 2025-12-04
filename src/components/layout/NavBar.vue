@@ -1,9 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
@@ -15,9 +14,13 @@ const userName = computed(() => {
   return ''
 })
 
-function handleLogout() {
-  authStore.logout()
-  router.push({ name: 'login' })
+async function handleLogout() {
+  try {
+    await authStore.logout()
+  } catch (e) {
+    // logout handles its own errors; ensure we don't leak exceptions to UI
+    console.warn('Logout failed:', e)
+  }
 }
 
 const showMenu = ref(false)
@@ -59,7 +62,9 @@ function closeMenu() {
             <span class="user-name">{{ userName }}</span>
             <span v-if="isAdmin" class="admin-badge">Admin</span>
           </RouterLink>
-          <button @click="handleLogout" class="btn btn-outline">Logout</button>
+          <button @click="handleLogout" class="btn btn-outline" :disabled="authStore.loading">
+            {{ authStore.loading ? 'Logging out...' : 'Logout' }}
+          </button>
         </template>
         <template v-else>
           <RouterLink to="/login" class="btn btn-outline">Login</RouterLink>

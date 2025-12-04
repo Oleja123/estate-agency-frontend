@@ -4,5 +4,5 @@ export default {
   properties: 3,
   propertyTypes: 5,
   lookup: 100,
-  favorites: 6
+  favorites: 3
 }
