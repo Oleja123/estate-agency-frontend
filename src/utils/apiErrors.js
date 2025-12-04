@@ -41,7 +41,9 @@ export function formatApiErrorResponse(resp, opts = { context: 'request' }) {
   if (details && typeof details === 'object') {
     for (const [k, v] of Object.entries(details)) {
       const label = translateFieldName(k)
-      fields[label] = Array.isArray(v) ? v.join(', ') : v
+      // Normalize field messages as well (remove ids, translate entity words, capitalize)
+      const rawText = Array.isArray(v) ? v.join(', ') : v
+      fields[label] = translateMessageText(rawText)
     }
   }
 
@@ -51,6 +53,7 @@ export function formatApiErrorResponse(resp, opts = { context: 'request' }) {
   // Translate common English entity words in server-provided messages into Russian
   function translateMessageText(text) {
     if (!text || typeof text !== 'string') return text
+    // English -> Russian replacements for common entity words
     const replacements = [
       [/\bUser(s)?\b/gi, 'пользователь$1'],
       [/\bProperty\b/gi, 'объект недвижимости'],
@@ -65,6 +68,54 @@ export function formatApiErrorResponse(resp, opts = { context: 'request' }) {
       [/\balready exists\b/gi, 'уже существует']
     ]
     let out = text
+
+    // Если сервер вернул сообщение вида "Property with id 123 not found" или похожее,
+    // преобразуем его в "Объект недвижимости не найден" (без id) — по требованию.
+    try {
+      const entityMap = {
+        // users
+        'user': 'пользователь',
+        'users': 'пользователь',
+        // properties
+        'property': 'объект недвижимости',
+        'properties': 'объект недвижимости',
+        'property-type': 'тип недвижимости',
+        'property type': 'тип недвижимости',
+        'property_types': 'тип недвижимости',
+        'property_type': 'тип недвижимости',
+        'propertytypes': 'тип недвижимости',
+        'propertytype': 'тип недвижимости',
+        'property types': 'тип недвижимости',
+        'propertytypes': 'тип недвижимости',
+        'propertyTypes': 'тип недвижимости',
+        'PropertyTypes': 'тип недвижимости',
+        'Property_types': 'тип недвижимости',
+        'Property_Type': 'тип недвижимости',
+        'property-types': 'тип недвижимости',
+        // images and misc
+        'image': 'изображение',
+        'images': 'изображение',
+        'email': 'электронная почта',
+        'login': 'логин',
+        'password': 'пароль',
+        'favorites': 'избранное'
+      }
+      // Построить паттерн: (entity) ... (with id|id|id=|#) <number>
+      const entitiesPattern = Object.keys(entityMap)
+        .map(e => e.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'))
+        .join('|')
+      const idPattern = new RegExp(`\\b(${entitiesPattern})\\b[\\s\\S]{0,120}?(?:\\bwith\\s+id\\b|\\bid\\b|\\bid=\\b|\\bID\\b|#)[:\\s=#-]*\\d+`, 'i')
+      const m = text.match(idPattern)
+      if (m && m[1]) {
+        const en = m[1].toLowerCase()
+        const ru = entityMap[en] || en
+        // вернуть короткое сообщение без id
+        return (ru + ' не найден')
+      }
+    } catch (e) {
+      // on any error fall back to generic replacements below
+    }
+
     for (const [rx, repl] of replacements) out = out.replace(rx, repl)
     return out
   }
@@ -96,6 +147,14 @@ export function formatApiErrorResponse(resp, opts = { context: 'request' }) {
       message = translateMessageText(message || 'Внутренняя ошибка сервера. Попробуйте позже.')
       break
   }
+
+  // Capitalize first letter of returned message to ensure user-facing strings start with an uppercase
+  function capitalizeFirst(str) {
+    if (!str || typeof str !== 'string') return str
+    return str.charAt(0).toUpperCase() + str.slice(1)
+  }
+
+  message = capitalizeFirst(message)
 
   return { message, fields: Object.keys(fields).length ? fields : null }
 }

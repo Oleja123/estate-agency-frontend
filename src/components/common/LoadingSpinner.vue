@@ -1,16 +1,23 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   message: {
     type: String,
     default: 'Загрузка...'
   }
+})
+
+const displayMessage = computed(() => {
+  const m = props.message || ''
+  return m ? m.charAt(0).toUpperCase() + m.slice(1) : m
 })
 </script>
 
 <template>
   <div class="loading-spinner">
     <div class="spinner"></div>
-    <p class="loading-message">{{ message }}</p>
+    <p class="loading-message">{{ displayMessage }}</p>
   </div>
 </template>
 

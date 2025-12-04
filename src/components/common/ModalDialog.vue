@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   show: {
     type: Boolean,
     default: false
@@ -26,6 +28,11 @@ function handleBackdropClick(event) {
     handleClose()
   }
 }
+
+const capitalizedTitle = computed(() => {
+  const t = props.title || ''
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : t
+})
 </script>
 
 <template>
@@ -34,7 +41,7 @@ function handleBackdropClick(event) {
       <div v-if="show" class="modal-backdrop" @click="handleBackdropClick">
         <div :class="['modal-content', `modal-${size}`]">
           <div class="modal-header">
-            <h3 class="modal-title">{{ title }}</h3>
+            <h3 class="modal-title">{{ capitalizedTitle }}</h3>
             <button @click="handleClose" class="modal-close">×</button>
           </div>
           <div class="modal-body">

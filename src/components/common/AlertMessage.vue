@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   type: {
     type: String,
     default: 'error',
@@ -20,6 +22,11 @@ const emit = defineEmits(['dismiss'])
 function handleDismiss() {
   emit('dismiss')
 }
+
+const capitalizedMessage = computed(() => {
+  const m = props.message || ''
+  return m ? m.charAt(0).toUpperCase() + m.slice(1) : m
+})
 </script>
 
 <template>
@@ -30,7 +37,7 @@ function handleDismiss() {
       <template v-else-if="type === 'warning'">⚠</template>
       <template v-else>ℹ</template>
     </span>
-    <span class="alert-message">{{ message }}</span>
+  <span class="alert-message">{{ capitalizedMessage }}</span>
     <button v-if="dismissible" @click="handleDismiss" class="alert-dismiss">×</button>
   </div>
 </template>

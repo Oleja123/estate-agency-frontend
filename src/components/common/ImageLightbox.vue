@@ -47,7 +47,8 @@ const currentSrc = computed(() => props.images[index.value] || null)
 const caption = computed(() => {
   // попытаться извлечь имя файла или использовать запасной вариант
   const img = props.images[index.value]
-  return img?.caption || ''
+  const raw = img?.caption || ''
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : raw
 })
 const hasPrev = computed(() => props.images.length > 1)
 const hasNext = computed(() => props.images.length > 1)

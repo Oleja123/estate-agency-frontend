@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   title: {
     type: String,
     required: true
@@ -35,6 +37,11 @@ function handleConfirm() {
 function handleCancel() {
   emit('cancel')
 }
+
+const capitalizedMessage = computed(() => {
+  const m = props.message || ''
+  return m ? m.charAt(0).toUpperCase() + m.slice(1) : m
+})
 </script>
 
 <template>
@@ -46,7 +53,7 @@ function handleCancel() {
             <h3 class="confirm-title">{{ title }}</h3>
           </div>
           <div class="confirm-body">
-            <p>{{ message }}</p>
+            <p>{{ capitalizedMessage }}</p>
           </div>
           <div class="confirm-footer">
             <button @click="handleCancel" class="btn btn-secondary">
