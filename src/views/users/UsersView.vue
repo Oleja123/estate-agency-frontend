@@ -28,6 +28,12 @@ const passwordErrors = ref({})
 
 const roles = ['client', 'admin']
 
+function roleLabel(role) {
+  if (role === 'admin') return 'Администратор'
+  if (role === 'client') return 'Клиент'
+  return role
+}
+
 onMounted(() => {
   loadUsers()
 })
@@ -94,7 +100,7 @@ function handlePageChange(page) {
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('ru-RU', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
@@ -182,8 +188,8 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
 <template>
   <div class="users-page">
     <div class="page-header">
-      <h1 class="page-title">User Management</h1>
-      <p class="page-subtitle">Manage registered users</p>
+      <h1 class="page-title">Управление пользователями</h1>
+      <p class="page-subtitle">Управление зарегистрированными пользователями</p>
     </div>
 
     <div class="filters-panel">
@@ -193,27 +199,27 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
             v-model="search"
             type="text"
             class="search-input"
-            placeholder="Search users..."
+            placeholder="Поиск пользователей..."
             @keyup.enter="handleSearch"
           />
-          <button @click="handleSearch" class="btn btn-primary">Search</button>
-          <button @click="resetFilters" class="btn btn-outline">Reset</button>
+          <button @click="handleSearch" class="btn btn-primary">Поиск</button>
+          <button @click="resetFilters" class="btn btn-outline">Сбросить</button>
         </div>
         
         <div class="filter-group">
           <select v-model="roleFilter" class="filter-select" @change="handleSearch">
-            <option value="">All Roles</option>
+            <option value="">Все роли</option>
             <option v-for="role in roles" :key="role" :value="role">
-              {{ role.charAt(0).toUpperCase() + role.slice(1) }}
+              {{ roleLabel(role) }}
             </option>
           </select>
         </div>
         
         <div class="filter-group">
           <select v-model="activeFilter" class="filter-select" @change="handleSearch">
-            <option value="">All Status</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
+            <option value="">Все статусы</option>
+            <option value="true">Активен</option>
+            <option value="false">Неактивен</option>
           </select>
         </div>
       </div>
@@ -226,25 +232,25 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
       @dismiss="usersStore.clearError"
     />
 
-    <LoadingSpinner v-if="usersStore.loading" message="Loading users..." />
+  <LoadingSpinner v-if="usersStore.loading" message="Загрузка пользователей..." />
 
     <template v-else>
       <div v-if="usersStore.users.length === 0" class="empty-state">
         <div class="empty-icon">👥</div>
-        <h3>No Users Found</h3>
-        <p>Try adjusting your search criteria.</p>
+        <h3>Пользователи не найдены</h3>
+        <p>Попробуйте изменить критерии поиска.</p>
       </div>
 
       <div v-else class="users-table-container">
         <table class="users-table">
           <thead>
             <tr>
-              <th>User</th>
-              <th>Login</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Joined</th>
-              <th>Actions</th>
+              <th>Пользователь</th>
+              <th>Логин</th>
+              <th>Роль</th>
+              <th>Статус</th>
+              <th>Дата регистрации</th>
+              <th>Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -260,31 +266,31 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
               <td>{{ user.login }}</td>
               <td>
                 <span :class="['role-badge', `role-${user.role}`]">
-                  {{ user.role }}
+                  {{ roleLabel(user.role) }}
                 </span>
               </td>
               <td>
                 <span :class="['status-badge', user.is_active ? 'status-active' : 'status-inactive']">
-                  {{ user.is_active ? 'Active' : 'Inactive' }}
+                  {{ user.is_active ? 'Активен' : 'Неактивен' }}
                 </span>
               </td>
               <td>{{ formatDate(user.created_at) }}</td>
               <td>
                 <div class="actions-group">
                   <RouterLink :to="`/users/${user.id}`" class="action-btn">
-                    View
+                    Просмотр
                   </RouterLink>
                   <button @click="openRoleDialog(user)" class="action-btn">
-                    Role
+                    Роль
                   </button>
                   <button @click="openPasswordDialog(user)" class="action-btn">
-                    Password
+                    Пароль
                   </button>
                   <button @click="toggleActive(user)" class="action-btn">
-                    {{ user.is_active ? 'Deactivate' : 'Activate' }}
+                    {{ user.is_active ? 'Деактивировать' : 'Активировать' }}
                   </button>
                   <button @click="openDeleteDialog(user)" class="action-btn action-btn-danger">
-                    Delete
+                    Удалить
                   </button>
                 </div>
               </td>
@@ -302,59 +308,59 @@ const totalPages = () => Math.ceil(usersStore.total / limit.value)
 
     <ConfirmDialog
       :show="showDeleteDialog"
-      title="Delete User"
-      :message="`Are you sure you want to delete ${selectedUser?.first_name} ${selectedUser?.last_name}?`"
-      confirm-text="Delete"
+      title="Удалить пользователя"
+      :message="`Вы уверены, что хотите удалить ${selectedUser?.first_name} ${selectedUser?.last_name}?`"
+      confirm-text="Удалить"
       @confirm="handleDelete"
       @cancel="showDeleteDialog = false"
     />
 
     <ModalDialog
       :show="showRoleDialog"
-      title="Change User Role"
+      title="Изменить роль пользователя"
       size="small"
       @close="showRoleDialog = false"
     >
       <div class="role-form">
-        <p>Change role for <strong>{{ selectedUser?.first_name }} {{ selectedUser?.last_name }}</strong></p>
+        <p>Изменить роль для <strong>{{ selectedUser?.first_name }} {{ selectedUser?.last_name }}</strong></p>
         <div class="form-group">
-          <label for="role" class="form-label">Role</label>
+          <label for="role" class="form-label">Роль</label>
           <select id="role" v-model="newRole" class="form-input">
             <option v-for="role in roles" :key="role" :value="role">
-              {{ role.charAt(0).toUpperCase() + role.slice(1) }}
+              {{ roleLabel(role) }}
             </option>
           </select>
         </div>
       </div>
       <template #footer>
-        <button @click="showRoleDialog = false" class="btn btn-outline">Cancel</button>
-        <button @click="handleChangeRole" class="btn btn-primary">Save</button>
+        <button @click="showRoleDialog = false" class="btn btn-outline">Отмена</button>
+        <button @click="handleChangeRole" class="btn btn-primary">Сохранить</button>
       </template>
     </ModalDialog>
 
     <ModalDialog
       :show="showPasswordDialog"
-      title="Change User Password"
+      title="Изменить пароль пользователя"
       size="small"
       @close="showPasswordDialog = false"
     >
       <div class="role-form">
-        <p>Change password for <strong>{{ selectedUser?.first_name }} {{ selectedUser?.last_name }}</strong></p>
+        <p>Изменить пароль для <strong>{{ selectedUser?.first_name }} {{ selectedUser?.last_name }}</strong></p>
         <div class="form-group">
-          <label for="new_password" class="form-label">New Password</label>
+          <label for="new_password" class="form-label">Новый пароль</label>
           <input id="new_password" v-model="newPassword" type="password" class="form-input" :class="{ 'input-error': passwordErrors.newPassword }" />
           <span v-if="passwordErrors.newPassword" class="error-text">{{ passwordErrors.newPassword }}</span>
         </div>
 
         <div class="form-group">
-          <label for="confirm_new_password" class="form-label">Confirm New Password</label>
+          <label for="confirm_new_password" class="form-label">Подтвердите пароль</label>
           <input id="confirm_new_password" v-model="confirmNewPassword" type="password" class="form-input" :class="{ 'input-error': passwordErrors.confirmNewPassword }" />
           <span v-if="passwordErrors.confirmNewPassword" class="error-text">{{ passwordErrors.confirmNewPassword }}</span>
         </div>
       </div>
       <template #footer>
-        <button @click="showPasswordDialog = false" class="btn btn-outline">Cancel</button>
-        <button @click="handleChangePasswordAdmin" class="btn btn-primary">Save</button>
+        <button @click="showPasswordDialog = false" class="btn btn-outline">Отмена</button>
+        <button @click="handleChangePasswordAdmin" class="btn btn-primary">Сохранить</button>
       </template>
     </ModalDialog>
   </div>

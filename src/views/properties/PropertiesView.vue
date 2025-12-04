@@ -36,6 +36,22 @@ const localFilters = ref({
 const transactionTypes = ['sale', 'rent']
 const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
 
+function txLabel(t) {
+  if (t === 'sale') return 'Продажа'
+  if (t === 'rent') return 'Аренда'
+  return t
+}
+
+function statusLabel(s) {
+  switch (s) {
+    case 'active': return 'Активен'
+    case 'sold': return 'Продано'
+    case 'rented': return 'Арендовано'
+    case 'inactive': return 'Неактивен'
+    default: return s
+  }
+}
+
 onMounted(async () => {
   await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
   await propertiesStore.fetchProperties()
@@ -192,7 +208,7 @@ function handlePageChange(page) {
 }
 
 function formatPrice(price) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 0
@@ -201,7 +217,7 @@ function formatPrice(price) {
 
 function getPropertyTypeName(typeId) {
   const type = propertyTypesStore.propertyTypes.find(t => t.id === typeId)
-  return type ? type.name : 'Unknown'
+  return type ? type.name : 'Неизвестно'
 }
 
 function getStatusClass(status) {
@@ -285,15 +301,15 @@ function openPropertyLightbox(property, start = 0) {
   <div class="properties-page">
     <div class="page-header">
       <div class="page-header-content">
-        <h1 class="page-title">Properties</h1>
-        <p class="page-subtitle">Browse our collection of properties</p>
+  <h1 class="page-title">Объекты недвижимости</h1>
+  <p class="page-subtitle">Просмотр доступных объектов</p>
       </div>
       <div class="page-header-actions">
         <button @click="showFilters = !showFilters" class="btn btn-outline">
-          {{ showFilters ? 'Hide Filters' : 'Show Filters' }}
+          {{ showFilters ? 'Скрыть фильтры' : 'Показать фильтры' }}
         </button>
         <RouterLink v-if="isAdmin" to="/properties/create" class="btn btn-primary">
-          Add Property
+          Добавить объект
         </RouterLink>
       </div>
     </div>
@@ -302,17 +318,17 @@ function openPropertyLightbox(property, start = 0) {
       <div v-if="showFilters" class="filters-panel">
         <div class="filters-grid">
           <div class="filter-group">
-            <label class="filter-label">Search</label>
+            <label class="filter-label">Поиск</label>
             <input
               v-model="localFilters.search"
               type="text"
               class="filter-input"
-              placeholder="Search properties..."
+              placeholder="Поиск объектов..."
             />
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Property Type</label>
+            <label class="filter-label">Тип недвижимости</label>
             <select v-model="localFilters.type_id" class="filter-input">
               <option value="">All Types</option>
               <option
@@ -326,74 +342,74 @@ function openPropertyLightbox(property, start = 0) {
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Transaction Type</label>
+            <label class="filter-label">Тип сделки</label>
             <select v-model="localFilters.transaction_type" class="filter-input">
               <option value="">All</option>
               <option v-for="type in transactionTypes" :key="type" :value="type">
-                {{ type.charAt(0).toUpperCase() + type.slice(1) }}
+                {{ txLabel(type) }}
               </option>
             </select>
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">City</label>
+            <label class="filter-label">Город</label>
             <input
               v-model="localFilters.city"
               type="text"
               class="filter-input"
-              placeholder="Enter city..."
+              placeholder="Введите город..."
             />
           </div>
 
           <!-- location filter moved below grid -->
 
           <div class="filter-group">
-            <label class="filter-label">Status</label>
+            <label class="filter-label">Статус</label>
             <select v-model="localFilters.property_status" class="filter-input">
               <option value="">All</option>
               <option v-for="status in propertyStatuses" :key="status" :value="status">
-                {{ status.charAt(0).toUpperCase() + status.slice(1) }}
+                {{ statusLabel(status) }}
               </option>
             </select>
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Min Price</label>
+            <label class="filter-label">Мин. цена</label>
             <input
               v-model="localFilters.min_price"
               type="number"
               class="filter-input"
-              placeholder="Min price..."
+              placeholder="Мин. цена..."
             />
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Max Price</label>
+            <label class="filter-label">Макс. цена</label>
             <input
               v-model="localFilters.max_price"
               type="number"
               class="filter-input"
-              placeholder="Max price..."
+              placeholder="Макс. цена..."
             />
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Min Area (m²)</label>
+            <label class="filter-label">Мин. площадь (м²)</label>
             <input
               v-model="localFilters.min_area"
               type="number"
               class="filter-input"
-              placeholder="Min area..."
+              placeholder="Мин. площадь..."
             />
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Max Area (m²)</label>
+            <label class="filter-label">Макс. площадь (м²)</label>
             <input
               v-model="localFilters.max_area"
               type="number"
               class="filter-input"
-              placeholder="Max area..."
+              placeholder="Макс. площадь..."
             />
           </div>
         </div>
@@ -401,25 +417,25 @@ function openPropertyLightbox(property, start = 0) {
         <!-- separate full-width location filter row -->
         <div class="filters-location-row">
           <div class="filter-group full-width">
-            <label class="filter-label">Use My Location</label>
+            <label class="filter-label">Использовать моё местоположение</label>
             <div style="display:flex;gap:.5rem;align-items:center;">
-              <button type="button" class="btn btn-outline" @click="requestLocation">Use my location</button>
-              <button type="button" class="btn btn-outline" @click="clearLocation">Clear</button>
+              <button type="button" class="btn btn-outline" @click="requestLocation">Определить местоположение</button>
+              <button type="button" class="btn btn-outline" @click="clearLocation">Очистить</button>
             </div>
             <div style="margin-top:.5rem;display:flex;gap:.5rem;">
               <input v-model="localFilters.latitude" type="text" class="filter-input" placeholder="Lat" />
               <input v-model="localFilters.longitude" type="text" class="filter-input" placeholder="Lng" />
             </div>
             <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
-              <input v-model="localFilters.radius_km" type="number" min="0" step="1" class="filter-input" placeholder="Radius (km)" />
-              <small style="color:#6b7280">Set radius to filter properties within distance</small>
+              <input v-model="localFilters.radius_km" type="number" min="0" step="1" class="filter-input" placeholder="Радиус (км)" />
+              <small style="color:#6b7280">Укажите радиус для фильтрации объектов по расстоянию</small>
             </div>
           </div>
         </div>
 
         <div class="filters-actions">
-          <button @click="resetFilters" class="btn btn-outline">Reset</button>
-          <button @click="applyFilters" class="btn btn-primary">Apply Filters</button>
+          <button @click="resetFilters" class="btn btn-outline">Сбросить</button>
+          <button @click="applyFilters" class="btn btn-primary">Применить</button>
         </div>
       </div>
     </Transition>
@@ -431,13 +447,13 @@ function openPropertyLightbox(property, start = 0) {
       @dismiss="propertiesStore.clearError"
     />
 
-    <LoadingSpinner v-if="propertiesStore.loading" message="Loading properties..." />
+  <LoadingSpinner v-if="propertiesStore.loading" message="Загрузка объектов..." />
 
     <template v-else>
       <div v-if="propertiesStore.properties.length === 0" class="empty-state">
         <div class="empty-icon">🏠</div>
-        <h3>No Properties Found</h3>
-        <p>Try adjusting your filters or check back later.</p>
+        <h3>Объекты не найдены</h3>
+        <p>Попробуйте изменить фильтры или зайти позже.</p>
       </div>
 
       <div v-else class="properties-grid">
@@ -453,7 +469,7 @@ function openPropertyLightbox(property, start = 0) {
               {{ getPropertyTypeName(property.type_id) }}
             </span>
             <span :class="['property-status-badge', getStatusClass(property.property_status)]">
-              {{ property.property_status }}
+              {{ statusLabel(property.property_status) }}
             </span>
           </div>
           <div class="property-content">
@@ -461,11 +477,11 @@ function openPropertyLightbox(property, start = 0) {
             <p class="property-address">📍 {{ property.property_address }}, {{ property.city }}</p>
             <div class="property-details">
               <span class="property-area">📐 {{ property.area }} m²</span>
-              <span class="property-transaction">{{ property.transaction_type }}</span>
+              <span class="property-transaction">{{ txLabel(property.transaction_type) }}</span>
             </div>
             <div class="property-price">
               {{ formatPrice(property.price) }}
-              <span v-if="property.transaction_type === 'rent'" class="price-period">/month</span>
+              <span v-if="property.transaction_type === 'rent'" class="price-period">/мес</span>
             </div>
           </div>
         </RouterLink>

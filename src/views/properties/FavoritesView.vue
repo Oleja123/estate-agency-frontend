@@ -31,7 +31,7 @@ onMounted(async () => {
     await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
     await loadFavorites()
   } catch (err) {
-    error.value = 'Failed to load favorites'
+    error.value = 'Не удалось загрузить избранное'
   } finally {
     loading.value = false
   }
@@ -51,7 +51,7 @@ async function loadFavorites() {
       favoriteProperties.value = []
     }
   } catch (err) {
-    error.value = 'Failed to load favorites'
+    error.value = 'Не удалось загрузить избранное'
   }
 }
 
@@ -69,12 +69,12 @@ async function removeFavorite(propertyId) {
     favoriteProperties.value = favoriteProperties.value.filter(p => p.id !== propertyId)
     favoriteIds.value = favoriteIds.value.filter(id => id !== propertyId)
   } catch (err) {
-    error.value = 'Failed to remove from favorites'
+    error.value = 'Не удалось удалить из избранного'
   }
 }
 
 function formatPrice(price) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 0
@@ -83,7 +83,7 @@ function formatPrice(price) {
 
 function getPropertyTypeName(typeId) {
   const type = propertyTypesStore.propertyTypes.find(t => t.id === typeId)
-  return type ? type.name : 'Unknown'
+  return type ? type.name : 'Неизвестно'
 }
 
 function getStatusClass(status) {
@@ -164,8 +164,8 @@ function openPropertyLightbox(property, start = 0) {
 <template>
   <div class="favorites-page">
     <div class="page-header">
-      <h1 class="page-title">My Favorites</h1>
-      <p class="page-subtitle">Properties you've saved for later</p>
+      <h1 class="page-title">Избранное</h1>
+      <p class="page-subtitle">Объекты, сохранённые вами</p>
     </div>
 
     <AlertMessage
@@ -175,15 +175,15 @@ function openPropertyLightbox(property, start = 0) {
       @dismiss="error = null"
     />
 
-    <LoadingSpinner v-if="loading" message="Loading favorites..." />
+  <LoadingSpinner v-if="loading" message="Загрузка избранного..." />
 
     <template v-else>
       <div v-if="favoriteProperties.length === 0" class="empty-state">
         <div class="empty-icon">❤️</div>
-        <h3>No Favorites Yet</h3>
-        <p>Start browsing properties and add them to your favorites!</p>
+        <h3>Пока нет избранного</h3>
+        <p>Начните просматривать объекты и добавьте их в избранное!</p>
         <RouterLink to="/properties" class="btn btn-primary">
-          Browse Properties
+          Просмотреть объекты
         </RouterLink>
       </div>
 
@@ -217,7 +217,7 @@ function openPropertyLightbox(property, start = 0) {
             </div>
           </RouterLink>
           <button @click="removeFavorite(property.id)" class="remove-favorite-btn">
-            ❤️ Remove
+            Удалить из избранного
           </button>
         </div>
       </div>

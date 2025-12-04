@@ -13,7 +13,7 @@ const propertiesStore = usePropertiesStore()
 const propertyTypesStore = usePropertyTypesStore()
 
 const isEditMode = computed(() => route.name === 'property-edit')
-const pageTitle = computed(() => isEditMode.value ? 'Edit Property' : 'Add Property')
+const pageTitle = computed(() => isEditMode.value ? 'Редактировать объект' : 'Добавить объект')
 
 const form = ref({
   title: '',
@@ -90,6 +90,12 @@ function revokePreview(file) {
 }
 
 const transactionTypes = ['sale', 'rent']
+
+function txLabel(t) {
+  if (t === 'sale') return 'Продажа'
+  if (t === 'rent') return 'Аренда'
+  return t
+}
 const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
 
 onMounted(async () => {
@@ -121,7 +127,7 @@ onMounted(async () => {
 
 function clearImages() {
   // confirm destructive action
-  const ok = typeof window !== 'undefined' ? window.confirm('Clear all images for this property? This will remove them on the server when you save.') : true
+  const ok = typeof window !== 'undefined' ? window.confirm('Очистить все изображения для этого объекта? Изображения будут удалены на сервере при сохранении.') : true
   if (!ok) return
   // clear local list immediately; on save we'll sync to server
   imageFiles.value = []
@@ -131,31 +137,31 @@ function validateForm() {
   errors.value = {}
   
   if (!form.value.title) {
-    errors.value.title = 'Title is required'
+    errors.value.title = 'Требуется заголовок'
   }
-  
+
   if (!form.value.property_description) {
-    errors.value.property_description = 'Description is required'
+    errors.value.property_description = 'Требуется описание'
   }
-  
+
   if (!form.value.type_id) {
-    errors.value.type_id = 'Property type is required'
+    errors.value.type_id = 'Требуется выбрать тип недвижимости'
   }
-  
+
   if (!form.value.price || form.value.price <= 0) {
-    errors.value.price = 'Valid price is required'
+    errors.value.price = 'Требуется корректная цена'
   }
-  
+
   if (!form.value.area || form.value.area <= 0) {
-    errors.value.area = 'Valid area is required'
+    errors.value.area = 'Требуется корректная площадь'
   }
-  
+
   if (!form.value.property_address) {
-    errors.value.property_address = 'Address is required'
+    errors.value.property_address = 'Требуется адрес'
   }
-  
+
   if (!form.value.city) {
-    errors.value.city = 'City is required'
+    errors.value.city = 'Требуется город'
   }
   
   return Object.keys(errors.value).length === 0
@@ -327,12 +333,12 @@ function goBack() {
   <div class="property-form-page">
     <div class="page-header">
       <button @click="goBack" class="back-link">
-        ← Back
+        ← Назад
       </button>
       <h1 class="page-title">{{ pageTitle }}</h1>
     </div>
 
-    <LoadingSpinner v-if="propertiesStore.loading && isEditMode" message="Loading property..." />
+  <LoadingSpinner v-if="propertiesStore.loading && isEditMode" message="Загрузка объекта..." />
 
     <AlertMessage
       v-if="propertiesStore.error"
@@ -344,35 +350,35 @@ function goBack() {
     <AlertMessage
       v-if="success"
       type="success"
-      :message="isEditMode ? 'Property updated successfully!' : 'Property created successfully!'"
+      :message="isEditMode ? 'Объект успешно обновлён!' : 'Объект успешно создан!'"
     />
 
     <form @submit.prevent="handleSubmit" class="property-form">
       <div class="form-card">
-        <h2 class="form-section-title">Basic Information</h2>
+  <h2 class="form-section-title">Основная информация</h2>
 
         <div class="form-group">
-          <label for="title" class="form-label">Title *</label>
+          <label for="title" class="form-label">Заголовок *</label>
           <input
             id="title"
             v-model="form.title"
             type="text"
             class="form-input"
             :class="{ 'input-error': errors.title || propertiesStore.fieldErrors?.title }"
-            placeholder="e.g. Luxury Apartment in Downtown"
+            placeholder="Напр., Квартира повышенной комфортности в центре"
           />
           <span v-if="errors.title" class="error-text">{{ errors.title }}</span>
           <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.title" class="error-text">{{ propertiesStore.fieldErrors.title }}</span>
         </div>
 
         <div class="form-group">
-          <label for="description" class="form-label">Description *</label>
+          <label for="description" class="form-label">Описание *</label>
           <textarea
             id="description"
             v-model="form.property_description"
             class="form-input form-textarea"
             :class="{ 'input-error': errors.property_description || propertiesStore.fieldErrors?.property_description }"
-            placeholder="Describe the property..."
+            placeholder="Опишите объект..."
             rows="4"
           ></textarea>
           <span v-if="errors.property_description" class="error-text">{{ errors.property_description }}</span>
@@ -381,14 +387,14 @@ function goBack() {
 
         <div class="form-row">
           <div class="form-group">
-            <label for="type_id" class="form-label">Property Type *</label>
+            <label for="type_id" class="form-label">Тип недвижимости *</label>
             <select
               id="type_id"
               v-model="form.type_id"
               class="form-input"
               :class="{ 'input-error': errors.type_id || propertiesStore.fieldErrors?.type_id }"
             >
-              <option value="">Select type...</option>
+              <option value="">Выберите тип...</option>
               <option
                 v-for="type in propertyTypesStore.propertyTypes"
                 :key="type.id"
@@ -402,7 +408,7 @@ function goBack() {
           </div>
 
           <div class="form-group">
-            <label for="transaction_type" class="form-label">Transaction Type *</label>
+            <label for="transaction_type" class="form-label">Тип сделки *</label>
             <select
               id="transaction_type"
               v-model="form.transaction_type"
@@ -417,7 +423,7 @@ function goBack() {
 
         <div class="form-row">
           <div class="form-group">
-            <label for="price" class="form-label">Price (USD) *</label>
+            <label for="price" class="form-label">Цена (USD) *</label>
             <input
               id="price"
               v-model.number="form.price"
@@ -433,7 +439,7 @@ function goBack() {
           </div>
 
           <div class="form-group">
-            <label for="area" class="form-label">Area (m²) *</label>
+            <label for="area" class="form-label">Площадь (м²) *</label>
             <input
               id="area"
               v-model.number="form.area"
@@ -450,24 +456,24 @@ function goBack() {
         </div>
 
         <div v-if="isEditMode" class="form-group">
-          <label for="property_status" class="form-label">Status</label>
+          <label for="property_status" class="form-label">Статус</label>
           <select
             id="property_status"
             v-model="form.property_status"
             class="form-input"
           >
             <option v-for="status in propertyStatuses" :key="status" :value="status">
-              {{ status.charAt(0).toUpperCase() + status.slice(1) }}
+              {{ status === 'active' ? 'Активен' : status === 'sold' ? 'Продано' : status === 'rented' ? 'Арендовано' : 'Неактивен' }}
             </option>
           </select>
         </div>
       </div>
 
       <div class="form-card">
-        <h2 class="form-section-title">Location</h2>
+  <h2 class="form-section-title">Расположение</h2>
         
         <div class="form-group">
-          <label for="address" class="form-label">Address *</label>
+          <label for="address" class="form-label">Адрес *</label>
           <input
             id="address"
             v-model="form.property_address"
@@ -478,11 +484,11 @@ function goBack() {
           />
           <span v-if="errors.property_address" class="error-text">{{ errors.property_address }}</span>
           <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.property_address" class="error-text">{{ propertiesStore.fieldErrors.property_address }}</span>
-          <span class="form-hint">The address will be geocoded to get coordinates.</span>
+          <span class="form-hint">Адрес будет геокодирован для получения координат.</span>
         </div>
 
         <div class="form-group">
-          <label for="city" class="form-label">City *</label>
+          <label for="city" class="form-label">Город *</label>
           <input
             id="city"
             v-model="form.city"
@@ -497,10 +503,10 @@ function goBack() {
       </div>
 
       <div class="form-card">
-        <h2 class="form-section-title">Images</h2>
+  <h2 class="form-section-title">Изображения</h2>
         
         <div class="form-group">
-          <label for="images" class="form-label">Property Images</label>
+          <label for="images" class="form-label">Изображения объекта</label>
           <input
             id="images"
             type="file"
@@ -511,9 +517,9 @@ function goBack() {
             @change="handleFileChange"
           />
           <div style="margin-top:0.5rem;">
-            <button v-if="isEditMode && imageFiles.length > 0" type="button" class="btn btn-outline" @click="clearImages">Clear images</button>
+            <button v-if="isEditMode && imageFiles.length > 0" type="button" class="btn btn-outline" @click="clearImages">Очистить изображения</button>
           </div>
-          <span class="form-hint">Upload images of the property (optional)</span>
+          <span class="form-hint">Загрузите изображения объекта (необязательно)</span>
           <span v-if="errors.images" class="error-text">{{ errors.images }}</span>
         </div>
 
@@ -532,20 +538,20 @@ function goBack() {
               <span class="image-name">{{ file.isNew ? (file.file && file.file.name) : file.filename }}</span>
             </div>
             <div class="image-preview-actions">
-              <button type="button" class="btn-move" @click="moveImageUp(index)" :disabled="index === 0" title="Move up">▲</button>
-              <button type="button" class="btn-move" @click="moveImageDown(index)" :disabled="index === imageFiles.length - 1" title="Move down">▼</button>
-              <button type="button" @click="removeImage(index)" class="remove-image" title="Remove">×</button>
+              <button type="button" class="btn-move" @click="moveImageUp(index)" :disabled="index === 0" title="Переместить вверх">▲</button>
+              <button type="button" class="btn-move" @click="moveImageDown(index)" :disabled="index === imageFiles.length - 1" title="Переместить вниз">▼</button>
+              <button type="button" @click="removeImage(index)" class="remove-image" title="Удалить">×</button>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="form-actions">
+        <div class="form-actions">
         <button type="button" @click="goBack" class="btn btn-outline">
-          Cancel
+          Отмена
         </button>
         <button type="submit" class="btn btn-primary" :disabled="loading">
-          {{ loading ? 'Saving...' : (isEditMode ? 'Update Property' : 'Create Property') }}
+          {{ loading ? 'Сохранение...' : (isEditMode ? 'Обновить объект' : 'Создать объект') }}
         </button>
       </div>
     </form>

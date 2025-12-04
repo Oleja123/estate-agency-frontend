@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { propertyTypesApi } from '../api'
 import paginationConfig from '../config/pagination'
+import formatApiErrorResponse from '../utils/apiErrors'
 
 export const usePropertyTypesStore = defineStore('propertyTypes', () => {
   const propertyTypes = ref([])
@@ -11,31 +12,7 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
   const error = ref(null)
   const fieldErrors = ref({})
 
-  // Helper: map backend responses to safe user-facing messages and extract field errors
-  function handleResponseError(resp, opts = { context: 'request' }) {
-    try { console.error('[propertyTypes] API error', opts.context, resp?.status, resp?.data) } catch (e) {}
-
-    if (!resp) return 'Сетевой или транспортный сбой. Проверьте подключение.'
-
-    const details = resp.data?.details || resp.data?.fieldErrors || resp.data?.errors || {}
-    fieldErrors.value = details || {}
-
-    switch (resp.status) {
-      case 400:
-        return 'Некорректный запрос. Проверьте введённые данные.'
-      case 401:
-        return 'Требуется авторизация. Пожалуйста, войдите в систему.'
-      case 403:
-        return 'Недостаточно прав для выполнения этой операции.'
-      case 404:
-        return 'Тип не найден.'
-      case 409:
-        return 'Невозможно удалить: есть связанные собственности.'
-      case 500:
-      default:
-        return 'Внутренняя ошибка сервера. Повторите попытку позже.'
-    }
-  }
+  // Use shared error formatter
 
   async function fetchPropertyTypes(params = {}) {
     loading.value = true
@@ -78,8 +55,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
         total.value = tot
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'fetchPropertyTypes' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchPropertyTypes' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -95,8 +73,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       currentType.value = response.data
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'fetchPropertyType' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchPropertyType' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -115,8 +94,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'createPropertyType' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'createPropertyType' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -135,8 +115,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'updatePropertyType' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'updatePropertyType' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -154,8 +135,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'deletePropertyType' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'deletePropertyType' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false

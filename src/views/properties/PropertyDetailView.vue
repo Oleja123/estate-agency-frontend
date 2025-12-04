@@ -131,7 +131,7 @@ function onThumbClick(idx) {
 }
 
 function formatPrice(price) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 0
@@ -139,7 +139,7 @@ function formatPrice(price) {
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('ru-RU', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -148,7 +148,7 @@ function formatDate(dateString) {
 
 function getPropertyTypeName(typeId) {
   const type = propertyTypesStore.propertyTypes.find(t => t.id === typeId)
-  return type ? type.name : 'Unknown'
+  return type ? type.name : 'Неизвестно'
 }
 
 function getStatusClass(status) {
@@ -202,7 +202,7 @@ async function handleDelete() {
 
 <template>
   <div class="property-detail-page">
-    <LoadingSpinner v-if="propertiesStore.loading" message="Loading property..." />
+    <LoadingSpinner v-if="propertiesStore.loading" message="Загрузка объекта недвижимости..." />
 
     <AlertMessage
       v-if="propertiesStore.error"
@@ -214,14 +214,14 @@ async function handleDelete() {
     <template v-if="property && !propertiesStore.loading">
       <div class="page-header">
         <RouterLink to="/properties" class="back-link">
-          ← Back to Properties
+          ← К списку объектов
         </RouterLink>
         <div v-if="isAdmin" class="page-actions">
           <RouterLink :to="`/properties/${property.id}/edit`" class="btn btn-outline">
-            Edit
+            Редактировать
           </RouterLink>
           <button @click="showDeleteDialog = true" class="btn btn-danger">
-            Delete
+            Удалить
           </button>
         </div>
       </div>
@@ -257,7 +257,7 @@ async function handleDelete() {
                 type="button"
                 class="thumb-button thumb-more"
                 @click.stop="openLightbox(visibleImages.length)"
-                :aria-label="`Show ${hiddenCount} more images`"
+                :aria-label="`Показать ещё ${hiddenCount} изображений`"
               >
                 <!-- show the first hidden image as background if available -->
                 <img v-if="getImageSrcFromItem(property.images[visibleImages.length])" :src="getImageSrcFromItem(property.images[visibleImages.length])" class="thumb-img" />
@@ -275,56 +275,56 @@ async function handleDelete() {
 
             <div class="property-price-section">
               <span class="property-price">{{ formatPrice(property.price) }}</span>
-              <span v-if="property.transaction_type === 'rent'" class="price-period">/month</span>
+              <span v-if="property.transaction_type === 'rent'" class="price-period">/мес</span>
               <span class="transaction-badge">{{ property.transaction_type }}</span>
             </div>
 
             <div class="property-meta">
               <div class="meta-item">
-                <span class="meta-label">Area</span>
+                <span class="meta-label">Площадь</span>
                 <span class="meta-value">{{ property.area }} m²</span>
               </div>
               <div class="meta-item">
-                <span class="meta-label">Type</span>
+                <span class="meta-label">Тип</span>
                 <span class="meta-value">{{ getPropertyTypeName(property.type_id) }}</span>
               </div>
               <div class="meta-item">
-                <span class="meta-label">Status</span>
+                <span class="meta-label">Статус</span>
                 <span class="meta-value capitalize">{{ property.property_status }}</span>
               </div>
             </div>
 
             <div class="property-description">
-              <h3>Description</h3>
+              <h3>Описание</h3>
               <p>{{ property.property_description }}</p>
             </div>
 
             <div class="property-dates">
-              <p><strong>Listed:</strong> {{ formatDate(property.created_at) }}</p>
-              <p><strong>Updated:</strong> {{ formatDate(property.updated_at) }}</p>
+              <p><strong>Добавлено:</strong> {{ formatDate(property.created_at) }}</p>
+              <p><strong>Обновлено:</strong> {{ formatDate(property.updated_at) }}</p>
             </div>
           </div>
         </div>
 
         <div class="property-sidebar">
           <div class="sidebar-card">
-            <h3>Actions</h3>
+            <h3>Действия</h3>
             <button 
               @click="toggleFavorite" 
               :class="['btn btn-block', isFavorite ? 'btn-danger' : 'btn-outline']"
               :disabled="favoriteLoading"
             >
-              {{ isFavorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites' }}
+              {{ isFavorite ? '❤️ Удалить из избранного' : '🤍 Добавить в избранное' }}
             </button>
           </div>
 
           <div class="sidebar-card">
-            <h3>Location</h3>
+            <h3>Расположение</h3>
             <div class="location-info">
-              <p><strong>Address:</strong> {{ property.property_address }}</p>
-              <p><strong>City:</strong> {{ property.city }}</p>
+              <p><strong>Адрес:</strong> {{ property.property_address }}</p>
+              <p><strong>Город:</strong> {{ property.city }}</p>
               <p v-if="property.latitude && property.longitude">
-                <strong>Coordinates:</strong><br>
+                <strong>Координаты:</strong><br>
                 {{ property.latitude.toFixed(6) }}, {{ property.longitude.toFixed(6) }}
               </p>
             </div>
@@ -335,9 +335,9 @@ async function handleDelete() {
 
     <ConfirmDialog
       :show="showDeleteDialog"
-      title="Delete Property"
-      message="Are you sure you want to delete this property? This action cannot be undone."
-      confirm-text="Delete"
+      title="Удалить объект"
+      message="Вы уверены, что хотите удалить этот объект? Это действие необратимо."
+      confirm-text="Удалить"
       @confirm="handleDelete"
       @cancel="showDeleteDialog = false"
     />

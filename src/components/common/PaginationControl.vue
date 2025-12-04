@@ -43,11 +43,13 @@ function goToPage(page) {
 </script>
 
 <template>
-  <nav v-if="totalPages > 1" class="pagination">
+  <nav v-if="totalPages > 1" class="pagination" role="navigation" aria-label="Навигация по страницам">
     <button 
       class="pagination-btn" 
       :disabled="currentPage === 1"
       @click="goToPage(1)"
+      title="Первая страница"
+      aria-label="Первая страница"
     >
       ««
     </button>
@@ -55,6 +57,8 @@ function goToPage(page) {
       class="pagination-btn" 
       :disabled="currentPage === 1"
       @click="goToPage(currentPage - 1)"
+      title="Предыдущая"
+      aria-label="Предыдущая страница"
     >
       «
     </button>
@@ -72,6 +76,8 @@ function goToPage(page) {
       class="pagination-btn" 
       :disabled="currentPage === totalPages"
       @click="goToPage(currentPage + 1)"
+      title="Следующая"
+      aria-label="Следующая страница"
     >
       »
     </button>
@@ -79,6 +85,8 @@ function goToPage(page) {
       class="pagination-btn" 
       :disabled="currentPage === totalPages"
       @click="goToPage(totalPages)"
+      title="Последняя страница"
+      aria-label="Последняя страница"
     >
       »»
     </button>

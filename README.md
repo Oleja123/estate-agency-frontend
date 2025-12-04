@@ -1,8 +1,8 @@
-# Estate Agency Frontend
+# Агентство недвижимости — Фронтенд
 
 Сайт для поиска и управления объектами недвижимости.
 
-Frontend application for the Estate Agency property management system, built with Vue.js 3.
+Фронтенд-приложение для системы управления объектами недвижимости, построено с использованием Vue.js 3.
 
 ## Features
 

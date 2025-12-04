@@ -51,15 +51,15 @@ function validateProfileForm() {
   profileErrors.value = {}
 
   if (!profileForm.value.login) {
-    profileErrors.value.login = 'Login is required'
+    profileErrors.value.login = 'Логин обязателен'
   }
 
   if (!profileForm.value.first_name) {
-    profileErrors.value.first_name = 'First name is required'
+    profileErrors.value.first_name = 'Имя обязательно'
   }
 
   if (!profileForm.value.last_name) {
-    profileErrors.value.last_name = 'Last name is required'
+    profileErrors.value.last_name = 'Фамилия обязательна'
   }
 
   // Phone number validation: optional, but if provided must be digits (7-15) with optional leading +
@@ -67,7 +67,7 @@ function validateProfileForm() {
     const cleaned = String(profileForm.value.phone_number).replace(/[^0-9+]/g, '')
     const phoneRegex = /^\+?\d{7,15}$/
     if (!phoneRegex.test(cleaned)) {
-      profileErrors.value.phone_number = 'Invalid phone number format'
+      profileErrors.value.phone_number = 'Неверный формат номера телефона'
     }
   }
 
@@ -78,15 +78,15 @@ function validatePasswordForm() {
   passwordErrors.value = {}
   
   if (!passwordForm.value.current_password) {
-    passwordErrors.value.current_password = 'Current password is required'
+    passwordErrors.value.current_password = 'Текущий пароль обязателен'
   }
   
   if (!passwordForm.value.new_password) {
-    passwordErrors.value.new_password = 'New password is required'
+    passwordErrors.value.new_password = 'Новый пароль обязателен'
   }
   
   if (passwordForm.value.new_password !== passwordForm.value.confirm_password) {
-    passwordErrors.value.confirm_password = 'Passwords do not match'
+    passwordErrors.value.confirm_password = 'Пароли не совпадают'
   }
   
   return Object.keys(passwordErrors.value).length === 0
@@ -102,16 +102,16 @@ async function handleProfileSubmit() {
   try {
     await usersStore.updateProfile(currentUserId.value, profileForm.value)
     await authStore.updateCurrentUser()
-    successMessage.value = 'Profile updated successfully!'
+    successMessage.value = 'Профиль успешно обновлён!'
   } catch (error) {
     // prefer store-provided field errors
     if (usersStore.fieldErrors && Object.keys(usersStore.fieldErrors).length) {
       serverProfileErrors.value = usersStore.fieldErrors
       // map server errors into profileErrors so they show next to inputs
       profileErrors.value = { ...profileErrors.value, ...serverProfileErrors.value }
-      errorMessage.value = usersStore.error || 'Failed to update profile'
+        errorMessage.value = usersStore.error || 'Не удалось обновить профиль'
     } else {
-      errorMessage.value = error.response?.data?.message || 'Failed to update profile'
+        errorMessage.value = error.response?.data?.message || 'Не удалось обновить профиль'
     }
   } finally {
     loading.value = false
@@ -136,9 +136,9 @@ async function handlePasswordSubmit() {
       new_password: '',
       confirm_password: ''
     }
-    successMessage.value = 'Password changed successfully!'
+    successMessage.value = 'Пароль успешно изменён!'
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Failed to change password'
+    errorMessage.value = error.response?.data?.message || 'Не удалось изменить пароль'
   } finally {
     loading.value = false
   }
@@ -149,7 +149,7 @@ function goBack() {
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('ru-RU', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'

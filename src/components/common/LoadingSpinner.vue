@@ -2,7 +2,7 @@
 defineProps({
   message: {
     type: String,
-    default: 'Loading...'
+    default: 'Загрузка...'
   }
 })
 </script>

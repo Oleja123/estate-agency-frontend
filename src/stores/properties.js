@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { propertiesApi } from '../api'
 import paginationConfig from '../config/pagination'
+import formatApiErrorResponse from '../utils/apiErrors'
 
 export const usePropertiesStore = defineStore('properties', () => {
   const properties = ref([])
@@ -32,44 +33,7 @@ export const usePropertiesStore = defineStore('properties', () => {
   const currentPage = computed(() => Math.floor(filters.value.offset / filters.value.limit) + 1)
   const totalPages = computed(() => Math.ceil(total.value / filters.value.limit))
 
-  // Helper: map backend responses to safe, user-friendly messages
-  function handleResponseError(resp, opts = { context: 'request' }) {
-    // log full response for debugging (not shown to user)
-    try { console.error('[properties] API error', opts.context, resp?.status, resp?.data) } catch (e) {}
-
-    // default network error
-    if (!resp) return 'Сетевой или транспортный сбой. Проверьте подключение.'
-
-    // extract structured field errors if present (Swagger: ErrorResponse.details)
-    const details = resp.data?.details || resp.data?.fieldErrors || resp.data?.errors || {}
-    fieldErrors.value = details || {}
-
-    const status = resp.status
-    // map status codes to user-friendly, non-sensitive messages
-    switch (status) {
-      case 400:
-        return 'Некорректный запрос. Проверьте введённые данные.'
-      case 401:
-        return 'Требуется авторизация. Пожалуйста, войдите в систему.'
-      case 403:
-        return 'Недостаточно прав для выполнения операции.'
-      case 404:
-        return 'Запрошенный ресурс не найден.'
-      case 409:
-        return 'Конфликт данных. Возможно, запись уже существует.'
-      case 422:
-        // Geocoding specific errors — show a friendly explanation
-        if (resp.data?.error || resp.data?.details) {
-          return 'Не удалось определить координаты по указанному адресу. Проверьте адрес и попробуйте снова.'
-        }
-        return 'Невозможно обработать запрос. Проверьте входные данные.'
-      case 502:
-        return 'Внешний сервис геокодирования временно недоступен. Повторите попытку позже.'
-      case 500:
-      default:
-        return 'Внутренняя ошибка сервера. Попробуйте позже.'
-    }
-  }
+  // Use shared error formatter
 
   async function fetchProperties(customParams = {}) {
     loading.value = true
@@ -89,8 +53,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       total.value = response.data.total || 0
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'fetchProperties' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchProperties' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -106,8 +71,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       currentProperty.value = response.data
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'fetchProperty' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchProperty' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -131,8 +97,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       // Unexpected but return data
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'createProperty' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'createProperty' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -157,8 +124,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       }
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'updateProperty' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'updateProperty' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -173,8 +141,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       await propertiesApi.delete(id)
       await fetchProperties()
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'deleteProperty' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'deleteProperty' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -186,8 +155,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       const response = await propertiesApi.toggleFavorite(id)
       return response
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'toggleFavorite' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'toggleFavorite' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     }
   }
@@ -199,8 +169,9 @@ export const usePropertiesStore = defineStore('properties', () => {
     try {
       await propertiesApi.uploadImages(id, files)
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'uploadImages' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'uploadImages' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -212,8 +183,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       const response = await propertiesApi.getImages(id)
       return response.data
     } catch (err) {
-      const resp = err.response
-      error.value = handleResponseError(resp, { context: 'getImages' })
+      const parsed = formatApiErrorResponse(err.response, { context: 'getImages' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     }
   }
