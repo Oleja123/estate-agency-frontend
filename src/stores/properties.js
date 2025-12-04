@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { propertiesApi } from '../api'
 import paginationConfig from '../config/pagination'
+import formatApiErrorResponse from '../utils/apiErrors'
 
 export const usePropertiesStore = defineStore('properties', () => {
   const properties = ref([])
@@ -9,6 +10,7 @@ export const usePropertiesStore = defineStore('properties', () => {
   const total = ref(0)
   const loading = ref(false)
   const error = ref(null)
+  const fieldErrors = ref({})
   const filters = ref({
     limit: paginationConfig.properties,
     offset: 0,
@@ -21,10 +23,17 @@ export const usePropertiesStore = defineStore('properties', () => {
     min_area: null,
     max_area: null,
     search: null
+    ,
+    // location-based filtering
+    latitude: null,
+    longitude: null,
+    radius_km: null
   })
 
   const currentPage = computed(() => Math.floor(filters.value.offset / filters.value.limit) + 1)
   const totalPages = computed(() => Math.ceil(total.value / filters.value.limit))
+
+  // Use shared error formatter
 
   async function fetchProperties(customParams = {}) {
     loading.value = true
@@ -44,7 +53,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       total.value = response.data.total || 0
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch properties'
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchProperties' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -60,7 +71,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       currentProperty.value = response.data
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch property'
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchProperty' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -72,11 +85,21 @@ export const usePropertiesStore = defineStore('properties', () => {
     error.value = null
 
     try {
+      // clear previous field errors
+      fieldErrors.value = {}
       const response = await propertiesApi.create(data)
-      await fetchProperties()
+      // Success (201)
+      if (response && response.status === 201) {
+        // optionally refresh list
+        await fetchProperties()
+        return response.data
+      }
+      // Unexpected but return data
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to create property'
+      const parsed = formatApiErrorResponse(err.response, { context: 'createProperty' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -88,10 +111,22 @@ export const usePropertiesStore = defineStore('properties', () => {
     error.value = null
 
     try {
-      await propertiesApi.update(id, data)
-      await fetchProperties()
+      fieldErrors.value = {}
+      const response = await propertiesApi.update(id, data)
+  // Успех (200) — обновить currentProperty, если бэкенд вернул объект
+      if (response && response.status === 200) {
+        if (response.data) {
+          currentProperty.value = response.data
+        }
+        // refresh list to reflect changes in listing
+        await fetchProperties()
+        return response.data
+      }
+      return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to update property'
+      const parsed = formatApiErrorResponse(err.response, { context: 'updateProperty' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -106,7 +141,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       await propertiesApi.delete(id)
       await fetchProperties()
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to delete property'
+      const parsed = formatApiErrorResponse(err.response, { context: 'deleteProperty' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -118,7 +155,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       const response = await propertiesApi.toggleFavorite(id)
       return response
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to toggle favorite'
+      const parsed = formatApiErrorResponse(err.response, { context: 'toggleFavorite' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     }
   }
@@ -130,7 +169,9 @@ export const usePropertiesStore = defineStore('properties', () => {
     try {
       await propertiesApi.uploadImages(id, files)
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to upload images'
+      const parsed = formatApiErrorResponse(err.response, { context: 'uploadImages' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -142,7 +183,9 @@ export const usePropertiesStore = defineStore('properties', () => {
       const response = await propertiesApi.getImages(id)
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to get images'
+      const parsed = formatApiErrorResponse(err.response, { context: 'getImages' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     }
   }
@@ -164,6 +207,10 @@ export const usePropertiesStore = defineStore('properties', () => {
       min_area: null,
       max_area: null,
       search: null
+      ,
+      latitude: null,
+      longitude: null,
+      radius_km: null
     }
   }
 
@@ -173,6 +220,11 @@ export const usePropertiesStore = defineStore('properties', () => {
 
   function clearError() {
     error.value = null
+    fieldErrors.value = {}
+  }
+
+  function clearFieldErrors() {
+    fieldErrors.value = {}
   }
 
   return {
@@ -181,6 +233,7 @@ export const usePropertiesStore = defineStore('properties', () => {
     total,
     loading,
     error,
+    fieldErrors,
     filters,
     currentPage,
     totalPages,
@@ -195,6 +248,7 @@ export const usePropertiesStore = defineStore('properties', () => {
     setFilters,
     resetFilters,
     setPage,
-    clearError
+    clearError,
+    clearFieldErrors
   }
 })

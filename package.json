@@ -1,5 +1,7 @@
 {
-  "name": "estate-agency-frontend",
+  "name": "agentstvo-nedvizhimosti-frontend",
+  "displayName": "Агентство недвижимости — фронтенд",
+  "description": "Фронтенд приложение для управления объектами недвижимости",
   "private": true,
   "version": "0.0.0",
   "type": "module",

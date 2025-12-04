@@ -6,12 +6,12 @@ import { RouterLink } from 'vue-router'
   <div class="not-found">
     <div class="not-found-content">
       <h1 class="not-found-code">404</h1>
-      <h2 class="not-found-title">Page Not Found</h2>
+      <h2 class="not-found-title">Страница не найдена</h2>
       <p class="not-found-message">
-        Sorry, we couldn't find the page you're looking for.
+        Извините, страница, которую вы ищете, не найдена.
       </p>
       <RouterLink to="/" class="btn btn-primary">
-        Go to Home
+        На главную
       </RouterLink>
     </div>
   </div>

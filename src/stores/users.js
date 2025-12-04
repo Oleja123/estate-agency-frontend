@@ -1,18 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { usersApi } from '../api'
+import formatApiErrorResponse from '../utils/apiErrors'
 import paginationConfig from '../config/pagination'
 
 export const useUsersStore = defineStore('users', () => {
   const users = ref([])
   const currentUser = ref(null)
   const favorites = ref([])
+  const favoritesTotal = ref(0)
+  // remember last used params for favorites pagination
+  const favoritesLastParams = ref({ limit: 6, offset: 0 })
   const total = ref(0)
   const loading = ref(false)
   const error = ref(null)
   const fieldErrors = ref({})
   // remember last used params so calls without params keep pagination
   const lastParams = ref({ limit: paginationConfig.users, offset: 0 })
+
+  // use shared utils.formatApiErrorResponse to parse API errors
 
   function resetLastParams(newParams = { limit: paginationConfig.users, offset: 0 }) {
     lastParams.value = { ...newParams }
@@ -53,9 +59,9 @@ export const useUsersStore = defineStore('users', () => {
         console.error('[UsersStore] fetchUsers error (logging failed):', logErr)
       }
 
-      const status = err.response?.status
-      const apiMessage = err.response?.data?.message || err.response?.data || null
-      error.value = apiMessage || (status ? `Failed to fetch users (${status})` : 'Failed to fetch users')
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchUsers' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -71,7 +77,9 @@ export const useUsersStore = defineStore('users', () => {
       currentUser.value = response.data
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch user'
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchUser' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -85,17 +93,9 @@ export const useUsersStore = defineStore('users', () => {
     try {
       await usersApi.updateProfile(id, data)
     } catch (err) {
-      // parse field errors if present
-      const data = err.response?.data
-      if (data && typeof data === 'object') {
-        const errorsObj = data.errors || data
-        const fields = {}
-        for (const [k, v] of Object.entries(errorsObj)) {
-          fields[k] = Array.isArray(v) ? v.join(', ') : v
-        }
-        fieldErrors.value = Object.keys(fields).length ? fields : {}
-      }
-      error.value = err.response?.data?.message || 'Failed to update profile'
+      const parsed = formatApiErrorResponse(err.response, { context: 'updateProfile' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -110,16 +110,9 @@ export const useUsersStore = defineStore('users', () => {
     try {
       await usersApi.changePassword(id, currentPassword, newPassword)
     } catch (err) {
-      const data = err.response?.data
-      if (data && typeof data === 'object') {
-        const errorsObj = data.errors || data
-        const fields = {}
-        for (const [k, v] of Object.entries(errorsObj)) {
-          fields[k] = Array.isArray(v) ? v.join(', ') : v
-        }
-        fieldErrors.value = Object.keys(fields).length ? fields : {}
-      }
-      error.value = err.response?.data?.message || 'Failed to change password'
+      const parsed = formatApiErrorResponse(err.response, { context: 'changePassword' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -140,16 +133,9 @@ export const useUsersStore = defineStore('users', () => {
         else users.value.unshift(updated)
       }
     } catch (err) {
-      const data = err.response?.data
-      if (data && typeof data === 'object') {
-        const errorsObj = data.errors || data
-        const fields = {}
-        for (const [k, v] of Object.entries(errorsObj)) {
-          fields[k] = Array.isArray(v) ? v.join(', ') : v
-        }
-        fieldErrors.value = Object.keys(fields).length ? fields : {}
-      }
-      error.value = err.response?.data?.message || 'Failed to change user password'
+      const parsed = formatApiErrorResponse(err.response, { context: 'changeUserPasswordAdmin' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -170,7 +156,9 @@ export const useUsersStore = defineStore('users', () => {
         else users.value.unshift(updated)
       }
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to change role'
+      const parsed = formatApiErrorResponse(err.response, { context: 'changeRole' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -190,7 +178,9 @@ export const useUsersStore = defineStore('users', () => {
         else users.value.unshift(updated)
       }
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to toggle user status'
+      const parsed = formatApiErrorResponse(err.response, { context: 'toggleActive' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -203,7 +193,7 @@ export const useUsersStore = defineStore('users', () => {
 
     try {
       const response = await usersApi.delete(id)
-      // If API returns deleted entity, remove it; otherwise remove by id
+  // Если API вернул удалённую сущность, удалить её; иначе удалить по id
       const returned = response?.data
       if (returned && returned.id) {
         const idx = users.value.findIndex(u => u.id === returned.id)
@@ -213,23 +203,58 @@ export const useUsersStore = defineStore('users', () => {
         if (idx !== -1) users.value.splice(idx, 1)
       }
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to delete user'
+      const parsed = formatApiErrorResponse(err.response, { context: 'deleteUser' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchFavorites(userId) {
+  async function fetchFavorites(userId, params = {}) {
+    // separate loading/error for favorites would be cleaner, but reuse general flags
     loading.value = true
     error.value = null
 
+    // merge with last params so callers that don't pass pagination keep it
+    const merged = { ...favoritesLastParams.value, ...params }
+    const cleaned = { ...merged }
+    Object.keys(cleaned).forEach((k) => {
+      if (cleaned[k] === '' || cleaned[k] === null || cleaned[k] === undefined) {
+        delete cleaned[k]
+      }
+    })
+    favoritesLastParams.value = { ...cleaned }
+
     try {
-      const response = await usersApi.getFavorites(userId)
-      favorites.value = response.data || []
-      return response.data
+      const response = await usersApi.getFavorites(userId, cleaned)
+      // normalize response shapes: items + total
+      const d = response.data
+      let items = []
+      if (Array.isArray(d)) {
+        items = d
+      } else if (Array.isArray(d.favorites)) {
+        items = d.favorites
+      } else if (Array.isArray(d.data)) {
+        items = d.data
+      } else if (Array.isArray(d.items)) {
+        items = d.items
+      } else if (Array.isArray(d.results)) {
+        items = d.results
+      }
+
+      // total from body or headers
+      let tot = d?.total ?? d?.count ?? d?.meta?.total ?? response.headers?.['x-total-count'] ?? items.length
+      tot = Number(tot) || 0
+
+      favorites.value = items
+      favoritesTotal.value = tot
+      return { items, total: tot }
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch favorites'
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchFavorites' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false

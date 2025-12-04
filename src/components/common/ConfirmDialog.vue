@@ -6,15 +6,15 @@ defineProps({
   },
   message: {
     type: String,
-    default: 'Are you sure you want to proceed?'
+    default: 'Вы уверены, что хотите продолжить?'
   },
   confirmText: {
     type: String,
-    default: 'Confirm'
+    default: 'Подтвердить'
   },
   cancelText: {
     type: String,
-    default: 'Cancel'
+    default: 'Отмена'
   },
   confirmVariant: {
     type: String,

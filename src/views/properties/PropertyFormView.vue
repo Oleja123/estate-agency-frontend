@@ -1,10 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
+// common components are registered globally in main.js
 import paginationConfig from '../../config/pagination'
 
 const route = useRoute()
@@ -13,7 +12,7 @@ const propertiesStore = usePropertiesStore()
 const propertyTypesStore = usePropertyTypesStore()
 
 const isEditMode = computed(() => route.name === 'property-edit')
-const pageTitle = computed(() => isEditMode.value ? 'Edit Property' : 'Add Property')
+const pageTitle = computed(() => isEditMode.value ? 'Редактировать объект' : 'Добавить объект')
 
 const form = ref({
   title: '',
@@ -30,9 +29,72 @@ const form = ref({
 const errors = ref({})
 const loading = ref(false)
 const success = ref(false)
+// imageFiles holds mixed items: { isNew: true, file: File } or { isNew: false, filename, data }
 const imageFiles = ref([])
+const fileInput = ref(null)
+const dragIndex = ref(null)
+
+function base64ToFile(base64Data, filename) {
+  // base64Data is raw base64 string (no data:... prefix)
+  const ext = (filename || '').split('.').pop()?.toLowerCase() || 'jpg'
+  let mime = 'image/jpeg'
+  if (ext === 'png') mime = 'image/png'
+  else if (ext === 'webp') mime = 'image/webp'
+  else if (ext === 'gif') mime = 'image/gif'
+  else if (ext === 'svg') mime = 'image/svg+xml'
+
+  try {
+    const binary = atob(base64Data)
+    const arr = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      arr[i] = binary.charCodeAt(i)
+    }
+    return new File([arr], filename || `image.${ext}`, { type: mime })
+  } catch (e) {
+    // запасной вариант: вернуть Blob, упакованный как File без типа
+    const blob = new Blob([], { type: mime })
+    return new File([blob], filename || `image.${ext}`)
+  }
+}
+
+function getPreviewUrl(file) {
+  if (!file) return ''
+  // если это обёртка для нового File
+  if (file.isNew && file.file) {
+    if (!file.__preview) {
+      try { file.__preview = URL.createObjectURL(file.file) } catch (e) { file.__preview = '' }
+    }
+    return file.__preview
+  }
+  // existing image with base64 data
+  if (!file.isNew && file.data) {
+    return `data:image/*;base64,${file.data}`
+  }
+  // запасной вариант для сырых объектов File
+  if (file instanceof File) {
+    if (!file.__preview) {
+      try { file.__preview = URL.createObjectURL(file) } catch (e) { file.__preview = '' }
+    }
+    return file.__preview
+  }
+  return ''
+}
+
+function revokePreview(file) {
+  if (!file) return
+  if (file.isNew && file.__preview) {
+    try { URL.revokeObjectURL(file.__preview) } catch (e) {}
+    delete file.__preview
+  }
+}
 
 const transactionTypes = ['sale', 'rent']
+
+function txLabel(t) {
+  if (t === 'sale') return 'Продажа'
+  if (t === 'rent') return 'Аренда'
+  return t
+}
 const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
 
 onMounted(async () => {
@@ -54,39 +116,51 @@ onMounted(async () => {
         city: p.city || '',
         property_status: p.property_status || 'active'
       }
+      // load existing images preserving order
+      if (Array.isArray(p.images) && p.images.length > 0) {
+        imageFiles.value = p.images.map(img => ({ isNew: false, filename: img.filename || '', data: img.data || '' }))
+      }
     }
   }
 })
+
+function clearImages() {
+  // подтверждение критического действия
+  const ok = typeof window !== 'undefined' ? window.confirm('Очистить все изображения для этого объекта? Изображения будут удалены на сервере при сохранении.') : true
+  if (!ok) return
+  // clear local list immediately; on save we'll sync to server
+  imageFiles.value = []
+}
 
 function validateForm() {
   errors.value = {}
   
   if (!form.value.title) {
-    errors.value.title = 'Title is required'
+    errors.value.title = 'Требуется заголовок'
   }
-  
+
   if (!form.value.property_description) {
-    errors.value.property_description = 'Description is required'
+    errors.value.property_description = 'Требуется описание'
   }
-  
+
   if (!form.value.type_id) {
-    errors.value.type_id = 'Property type is required'
+    errors.value.type_id = 'Требуется выбрать тип недвижимости'
   }
-  
+
   if (!form.value.price || form.value.price <= 0) {
-    errors.value.price = 'Valid price is required'
+    errors.value.price = 'Требуется корректная цена'
   }
-  
+
   if (!form.value.area || form.value.area <= 0) {
-    errors.value.area = 'Valid area is required'
+    errors.value.area = 'Требуется корректная площадь'
   }
-  
+
   if (!form.value.property_address) {
-    errors.value.property_address = 'Address is required'
+    errors.value.property_address = 'Требуется адрес'
   }
-  
+
   if (!form.value.city) {
-    errors.value.city = 'City is required'
+    errors.value.city = 'Требуется город'
   }
   
   return Object.keys(errors.value).length === 0
@@ -98,7 +172,10 @@ async function handleSubmit() {
   loading.value = true
   success.value = false
   
-  try {
+    try {
+      // clear previous server-side field errors
+      propertiesStore.clearFieldErrors()
+      propertiesStore.clearError()
     const data = {
       ...form.value,
       type_id: parseInt(form.value.type_id),
@@ -106,40 +183,144 @@ async function handleSubmit() {
       area: parseFloat(form.value.area)
     }
     
+    // Create or update property first. Image files (if any) are uploaded
+    // separately via multipart/form-data to the images endpoint so the
+    // backend receives them under the `files` field as expected.
+    let savedId = null
     if (isEditMode.value) {
       const id = parseInt(route.params.id)
-      await propertiesStore.updateProperty(id, data)
-      
-      if (imageFiles.value.length > 0) {
-        await propertiesStore.uploadImages(id, imageFiles.value)
-      }
-      
-      router.push(`/properties/${id}`)
+      const resp = await propertiesStore.updateProperty(id, data)
+      // updateProperty may return updated property; fall back to route param
+      savedId = resp?.id || id
     } else {
-      const newProperty = await propertiesStore.createProperty(data)
-      
-      if (imageFiles.value.length > 0 && newProperty?.id) {
-        await propertiesStore.uploadImages(newProperty.id, imageFiles.value)
+      const resp = await propertiesStore.createProperty(data)
+      // createProperty should return created resource (containing id)
+      savedId = resp?.id
+    }
+
+    // Build File objects array in order: convert existing base64 items to File
+    const filesToUpload = imageFiles.value.map(item => {
+      if (item.isNew && item.file) return item.file
+      if (!item.isNew && item.data) return base64ToFile(item.data, item.filename)
+      return null
+    }).filter(Boolean)
+
+  // При редактировании всегда пытаться синхронизировать изображения (даже пустой список), чтобы сервер мог их очистить.
+  // При создании — загружать только если есть файлы.
+    if (savedId && (isEditMode.value || filesToUpload.length > 0)) {
+      try {
+        await propertiesStore.uploadImages(savedId, filesToUpload)
+      } catch (err) {
+  // Если uploadImages не удался (например, бэкенд отклоняет пустой multipart), показать ошибку, но продолжить навигацию
+        console.error('Failed to upload/replace images:', err)
       }
-      
-      router.push('/properties')
+    }
+
+    // Navigate after successful save and optional image upload
+    if (savedId) {
+      router.push(isEditMode.value ? `/properties/${savedId}` : '/properties')
+    } else {
+  // Навигация по умолчанию (запасной вариант)
+      router.push(isEditMode.value ? `/properties/${route.params.id}` : '/properties')
     }
     
     success.value = true
   } catch (error) {
     console.error('Failed to save property:', error)
+    // merge server-side field errors into local errors so they show next to inputs
+    if (propertiesStore.fieldErrors && Object.keys(propertiesStore.fieldErrors).length) {
+      for (const [k, v] of Object.entries(propertiesStore.fieldErrors)) {
+        errors.value[k] = Array.isArray(v) ? v.join(', ') : v
+      }
+    }
   } finally {
     loading.value = false
   }
 }
 
 function handleFileChange(event) {
-  const files = Array.from(event.target.files)
-  imageFiles.value = files
+  const files = Array.from(event.target.files || [])
+  const goodFiles = []
+  const maxFiles = 10
+  // Append new files to existing selection, up to maxFiles total.
+  // Only accept PNG and JPEG (jpg) images.
+  const allowed = new Set(['image/png', 'image/jpeg'])
+  const slots = Math.max(0, maxFiles - imageFiles.value.length)
+  const rejected = []
+  for (const f of files) {
+    if (!f.type || !allowed.has(f.type)) {
+      rejected.push(f.name)
+      continue
+    }
+    if (goodFiles.length >= slots) break
+    goodFiles.push(f)
+  }
+
+  // Предупредить, если пользователь попытался добавить больше файлов, чем доступно слотов
+  if (files.length > slots && slots <= 0) {
+    errors.value.images = `Достигнут лимит: допускается максимум ${maxFiles} файлов.`
+  } else if (files.length > slots) {
+    errors.value.images = `Можно добавить только ${slots} файлов; остальные будут проигнорированы.`
+  } else if (rejected.length > 0) {
+    errors.value.images = `Допускаются только PNG и JPG/JPEG: ${rejected.join(', ')}`
+  } else {
+    delete errors.value.images
+  }
+
+  // добавить к существующему массиву как новые обёртки
+  const wrapped = goodFiles.map(f => ({ isNew: true, file: f }))
+  imageFiles.value = [...imageFiles.value, ...wrapped]
+  // очистить нативный input файлов, чтобы можно было снова выбрать те же файлы
+  if (fileInput.value) fileInput.value.value = ''
 }
 
 function removeImage(index) {
-  imageFiles.value.splice(index, 1)
+  const [removed] = imageFiles.value.splice(index, 1)
+  revokePreview(removed)
+  // keep native input cleared to reflect current selection
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+onBeforeUnmount(() => {
+  for (const f of imageFiles.value) revokePreview(f)
+})
+
+function moveImageUp(index) {
+  if (index <= 0) return
+  const files = [...imageFiles.value]
+  const [moved] = files.splice(index, 1)
+  files.splice(index - 1, 0, moved)
+  imageFiles.value = files
+}
+
+function moveImageDown(index) {
+  if (index >= imageFiles.value.length - 1) return
+  const files = [...imageFiles.value]
+  const [moved] = files.splice(index, 1)
+  files.splice(index + 1, 0, moved)
+  imageFiles.value = files
+}
+
+function onDragStart(e, index) {
+  dragIndex.value = index
+  try { e.dataTransfer.setData('text/plain', String(index)) } catch (err) {}
+}
+
+function onDragOver(e) {
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+}
+
+function onDrop(e, index) {
+  e.preventDefault()
+  const srcStr = e.dataTransfer.getData('text/plain')
+  const src = srcStr !== '' ? parseInt(srcStr, 10) : dragIndex.value
+  if (isNaN(src) || src === index) return
+  const files = [...imageFiles.value]
+  const [moved] = files.splice(src, 1)
+  files.splice(index, 0, moved)
+  imageFiles.value = files
+  dragIndex.value = null
 }
 
 function goBack() {
@@ -150,13 +331,11 @@ function goBack() {
 <template>
   <div class="property-form-page">
     <div class="page-header">
-      <button @click="goBack" class="back-link">
-        ← Back
-      </button>
+      <BackButton>{{ 'Назад' }}</BackButton>
       <h1 class="page-title">{{ pageTitle }}</h1>
     </div>
 
-    <LoadingSpinner v-if="propertiesStore.loading && isEditMode" message="Loading property..." />
+  <LoadingSpinner v-if="propertiesStore.loading && isEditMode" message="Загрузка объекта..." />
 
     <AlertMessage
       v-if="propertiesStore.error"
@@ -168,49 +347,51 @@ function goBack() {
     <AlertMessage
       v-if="success"
       type="success"
-      :message="isEditMode ? 'Property updated successfully!' : 'Property created successfully!'"
+      :message="isEditMode ? 'Объект успешно обновлён!' : 'Объект успешно создан!'"
     />
 
     <form @submit.prevent="handleSubmit" class="property-form">
       <div class="form-card">
-        <h2 class="form-section-title">Basic Information</h2>
-        
+  <h2 class="form-section-title">Основная информация</h2>
+
         <div class="form-group">
-          <label for="title" class="form-label">Title *</label>
+          <label for="title" class="form-label">Заголовок *</label>
           <input
             id="title"
             v-model="form.title"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.title }"
-            placeholder="e.g. Luxury Apartment in Downtown"
+            :class="{ 'input-error': errors.title || propertiesStore.fieldErrors?.title }"
+            placeholder="Напр., Квартира повышенной комфортности в центре"
           />
           <span v-if="errors.title" class="error-text">{{ errors.title }}</span>
+          <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.title" class="error-text">{{ propertiesStore.fieldErrors.title }}</span>
         </div>
 
         <div class="form-group">
-          <label for="description" class="form-label">Description *</label>
+          <label for="description" class="form-label">Описание *</label>
           <textarea
             id="description"
             v-model="form.property_description"
             class="form-input form-textarea"
-            :class="{ 'input-error': errors.property_description }"
-            placeholder="Describe the property..."
+            :class="{ 'input-error': errors.property_description || propertiesStore.fieldErrors?.property_description }"
+            placeholder="Опишите объект..."
             rows="4"
           ></textarea>
           <span v-if="errors.property_description" class="error-text">{{ errors.property_description }}</span>
+          <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.property_description" class="error-text">{{ propertiesStore.fieldErrors.property_description }}</span>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label for="type_id" class="form-label">Property Type *</label>
+            <label for="type_id" class="form-label">Тип недвижимости *</label>
             <select
               id="type_id"
               v-model="form.type_id"
               class="form-input"
-              :class="{ 'input-error': errors.type_id }"
+              :class="{ 'input-error': errors.type_id || propertiesStore.fieldErrors?.type_id }"
             >
-              <option value="">Select type...</option>
+              <option value="">Выберите тип...</option>
               <option
                 v-for="type in propertyTypesStore.propertyTypes"
                 :key="type.id"
@@ -220,10 +401,11 @@ function goBack() {
               </option>
             </select>
             <span v-if="errors.type_id" class="error-text">{{ errors.type_id }}</span>
+            <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.type_id" class="error-text">{{ propertiesStore.fieldErrors.type_id }}</span>
           </div>
 
           <div class="form-group">
-            <label for="transaction_type" class="form-label">Transaction Type *</label>
+            <label for="transaction_type" class="form-label">Тип сделки *</label>
             <select
               id="transaction_type"
               v-model="form.transaction_type"
@@ -238,111 +420,147 @@ function goBack() {
 
         <div class="form-row">
           <div class="form-group">
-            <label for="price" class="form-label">Price (USD) *</label>
+            <label for="price" class="form-label">Цена (₽) *</label>
             <input
               id="price"
-              v-model="form.price"
+              v-model.number="form.price"
               type="number"
               min="0"
               step="0.01"
               class="form-input"
-              :class="{ 'input-error': errors.price }"
+              :class="{ 'input-error': errors.price || propertiesStore.fieldErrors?.price }"
               placeholder="350000"
             />
             <span v-if="errors.price" class="error-text">{{ errors.price }}</span>
+            <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.price" class="error-text">{{ propertiesStore.fieldErrors.price }}</span>
           </div>
 
           <div class="form-group">
-            <label for="area" class="form-label">Area (m²) *</label>
+            <label for="area" class="form-label">Площадь (м²) *</label>
             <input
               id="area"
-              v-model="form.area"
+              v-model.number="form.area"
               type="number"
               min="0"
               step="0.01"
               class="form-input"
-              :class="{ 'input-error': errors.area }"
+              :class="{ 'input-error': errors.area || propertiesStore.fieldErrors?.area }"
               placeholder="120"
             />
             <span v-if="errors.area" class="error-text">{{ errors.area }}</span>
+            <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.area" class="error-text">{{ propertiesStore.fieldErrors.area }}</span>
           </div>
         </div>
 
         <div v-if="isEditMode" class="form-group">
-          <label for="property_status" class="form-label">Status</label>
+          <label for="property_status" class="form-label">Статус</label>
           <select
             id="property_status"
             v-model="form.property_status"
             class="form-input"
           >
             <option v-for="status in propertyStatuses" :key="status" :value="status">
-              {{ status.charAt(0).toUpperCase() + status.slice(1) }}
+              {{ status === 'active' ? 'Активен' : status === 'sold' ? 'Продано' : status === 'rented' ? 'Арендовано' : 'Неактивен' }}
             </option>
           </select>
         </div>
       </div>
 
       <div class="form-card">
-        <h2 class="form-section-title">Location</h2>
+  <h2 class="form-section-title">Расположение</h2>
         
         <div class="form-group">
-          <label for="address" class="form-label">Address *</label>
+          <label for="address" class="form-label">Адрес *</label>
           <input
             id="address"
             v-model="form.property_address"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.property_address }"
-            placeholder="123 Main Street"
+            :class="{ 'input-error': errors.property_address || propertiesStore.fieldErrors?.property_address }"
+            placeholder="ул. Ленина, 123"
           />
           <span v-if="errors.property_address" class="error-text">{{ errors.property_address }}</span>
-          <span class="form-hint">The address will be geocoded to get coordinates.</span>
+          <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.property_address" class="error-text">{{ propertiesStore.fieldErrors.property_address }}</span>
+          <span class="form-hint">Адрес будет геокодирован для получения координат.</span>
         </div>
 
         <div class="form-group">
-          <label for="city" class="form-label">City *</label>
-          <input
-            id="city"
-            v-model="form.city"
-            type="text"
-            class="form-input"
-            :class="{ 'input-error': errors.city }"
-            placeholder="New York"
-          />
+          <label for="city" class="form-label">Город *</label>
+              <input
+                id="city"
+                v-model="form.city"
+                type="text"
+                class="form-input"
+                :class="{ 'input-error': errors.city || propertiesStore.fieldErrors?.city }"
+                placeholder="Москва"
+              />
           <span v-if="errors.city" class="error-text">{{ errors.city }}</span>
+          <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.city" class="error-text">{{ propertiesStore.fieldErrors.city }}</span>
         </div>
       </div>
 
       <div class="form-card">
-        <h2 class="form-section-title">Images</h2>
+  <h2 class="form-section-title">Изображения</h2>
         
         <div class="form-group">
-          <label for="images" class="form-label">Property Images</label>
-          <input
-            id="images"
-            type="file"
-            accept="image/*"
-            multiple
-            class="form-input"
-            @change="handleFileChange"
-          />
-          <span class="form-hint">Upload images of the property (optional)</span>
+          <label for="images" class="form-label">Изображения объекта</label>
+
+          <div class="file-picker">
+            <!-- скрытый нативный input, доступный через label (for="images") -->
+            <input
+              id="images"
+              type="file"
+              accept="image/png, image/jpeg"
+              multiple
+              ref="fileInput"
+              class="file-input-hidden"
+              @change="handleFileChange"
+            />
+
+            <label for="images" class="file-picker-button" aria-hidden="false">
+              <span class="file-icon">📁</span>
+              <span class="file-text">Выбрать изображения</span>
+              <small class="file-hint">PNG, JPG — до 10 файлов</small>
+            </label>
+
+            <div style="margin-top:0.5rem;">
+              <button v-if="isEditMode && imageFiles.length > 0" type="button" class="btn btn-outline" @click="clearImages">Очистить изображения</button>
+            </div>
+
+            <span class="form-hint">Загрузите изображения объекта (необязательно)</span>
+            <span v-if="errors.images" class="error-text">{{ errors.images }}</span>
+          </div>
         </div>
 
         <div v-if="imageFiles.length > 0" class="image-preview-list">
-          <div v-for="(file, index) in imageFiles" :key="index" class="image-preview">
-            <span>{{ file.name }}</span>
-            <button type="button" @click="removeImage(index)" class="remove-image">×</button>
+          <div
+            v-for="(file, index) in imageFiles"
+            :key="index"
+            class="image-preview"
+            draggable="true"
+            @dragstart="onDragStart($event, index)"
+            @dragover="onDragOver"
+            @drop="onDrop($event, index)"
+          >
+            <div class="image-preview-left">
+              <img v-if="getPreviewUrl(file)" :src="getPreviewUrl(file)" class="image-thumb" alt="предпросмотр" />
+              <span class="image-name">{{ file.isNew ? (file.file && file.file.name) : file.filename }}</span>
+            </div>
+            <div class="image-preview-actions">
+              <button type="button" class="btn-move" @click="moveImageUp(index)" :disabled="index === 0" title="Переместить вверх">▲</button>
+              <button type="button" class="btn-move" @click="moveImageDown(index)" :disabled="index === imageFiles.length - 1" title="Переместить вниз">▼</button>
+              <button type="button" @click="removeImage(index)" class="remove-image" title="Удалить">×</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="form-actions">
+        <div class="form-actions">
         <button type="button" @click="goBack" class="btn btn-outline">
-          Cancel
+          Отмена
         </button>
         <button type="submit" class="btn btn-primary" :disabled="loading">
-          {{ loading ? 'Saving...' : (isEditMode ? 'Update Property' : 'Create Property') }}
+          {{ loading ? 'Сохранение...' : (isEditMode ? 'Обновить объект' : 'Создать объект') }}
         </button>
       </div>
     </form>
@@ -361,18 +579,29 @@ function goBack() {
 }
 
 .back-link {
-  background: none;
-  border: none;
-  color: #2563eb;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: #ffffff;
+  border: 1px solid #e6eefc;
+  color: #1e40af;
+  font-weight: 600;
+  border-radius: 8px;
   cursor: pointer;
-  padding: 0;
   margin-bottom: 1rem;
-  display: inline-block;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(16,24,40,0.08);
+}
+
+.back-link .arrow {
+  font-size: 1.05rem;
 }
 
 .page-title {
@@ -454,6 +683,48 @@ function goBack() {
   font-size: 0.875rem;
 }
 
+/* Styled file picker */
+.file-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.file-input-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+.file-picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  background: linear-gradient(90deg,#2563eb,#1e40af);
+  color: #fff;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+}
+.file-picker-button:hover {
+  filter: brightness(0.95);
+}
+.file-icon {
+  font-size: 1.1rem;
+}
+.file-hint {
+  margin-left: 0.5rem;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.75rem;
+}
+
 .image-preview-list {
   display: flex;
   flex-direction: column;
@@ -468,6 +739,41 @@ function goBack() {
   padding: 0.5rem 1rem;
   background: #f3f4f6;
   border-radius: 6px;
+}
+
+.image-preview-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.image-thumb {
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.image-name {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-move {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
 }
 
 .remove-image {

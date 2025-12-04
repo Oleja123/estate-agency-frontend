@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { propertyTypesApi } from '../api'
 import paginationConfig from '../config/pagination'
+import formatApiErrorResponse from '../utils/apiErrors'
 
 export const usePropertyTypesStore = defineStore('propertyTypes', () => {
   const propertyTypes = ref([])
@@ -10,6 +11,8 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
   const loading = ref(false)
   const error = ref(null)
   const fieldErrors = ref({})
+
+  // Use shared error formatter
 
   async function fetchPropertyTypes(params = {}) {
     loading.value = true
@@ -52,7 +55,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
         total.value = tot
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch property types'
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchPropertyTypes' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -68,7 +73,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       currentType.value = response.data
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch property type'
+      const parsed = formatApiErrorResponse(err.response, { context: 'fetchPropertyType' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -87,33 +94,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const status = err.response?.status
-      const data = err.response?.data
-
-      // parse field errors if present
-      if (data && typeof data === 'object') {
-        const errorsObj = data.errors || data
-        const fields = {}
-        for (const [k, v] of Object.entries(errorsObj)) {
-          fields[k] = Array.isArray(v) ? v.join(', ') : v
-        }
-        fieldErrors.value = Object.keys(fields).length ? fields : {}
-      }
-
-      if (status === 400) {
-        error.value = data?.message || 'Validation failed. Check the form fields.'
-      } else if (status === 401) {
-        error.value = 'Authentication required. Please log in.'
-      } else if (status === 403) {
-        error.value = 'Access denied. You do not have permission.'
-      } else if (status === 409) {
-        error.value = data?.message || 'Property type with this name already exists.'
-      } else if (status === 500) {
-        error.value = 'Server error. Please try again later.'
-      } else {
-        error.value = data?.message || 'Failed to create property type'
-      }
-
+      const parsed = formatApiErrorResponse(err.response, { context: 'createPropertyType' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -132,32 +115,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const status = err.response?.status
-      const data = err.response?.data
-
-      if (data && typeof data === 'object') {
-        const errorsObj = data.errors || data
-        const fields = {}
-        for (const [k, v] of Object.entries(errorsObj)) {
-          fields[k] = Array.isArray(v) ? v.join(', ') : v
-        }
-        fieldErrors.value = Object.keys(fields).length ? fields : {}
-      }
-
-      if (status === 400) {
-        error.value = data?.message || 'Validation failed. Check the form fields.'
-      } else if (status === 401) {
-        error.value = 'Authentication required. Please log in.'
-      } else if (status === 403) {
-        error.value = 'Access denied. You do not have permission.'
-      } else if (status === 409) {
-        error.value = data?.message || 'Conflict: property type already exists.'
-      } else if (status === 500) {
-        error.value = 'Server error. Please try again later.'
-      } else {
-        error.value = data?.message || 'Failed to update property type'
-      }
-
+      const parsed = formatApiErrorResponse(err.response, { context: 'updatePropertyType' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -175,20 +135,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
       await fetchPropertyTypes()
       return response.data
     } catch (err) {
-      const status = err.response?.status
-
-      if (status === 401) {
-        error.value = 'Authentication required. Please log in.'
-      } else if (status === 403) {
-        error.value = 'You do not have permission to delete this type.'
-      } else if (status === 409) {
-        error.value = 'Cannot delete this type because it is in use.'
-      } else if (status === 500) {
-        error.value = 'An unexpected error occurred. Please try again later.'
-      } else {
-        error.value = 'Failed to delete property type. Please try again.'
-      }
-
+      const parsed = formatApiErrorResponse(err.response, { context: 'deletePropertyType' })
+      fieldErrors.value = parsed.fields || {}
+      error.value = parsed.message
       throw err
     } finally {
       loading.value = false
@@ -200,6 +149,9 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
     fieldErrors.value = {}
   }
 
+  function clearFieldErrors() {
+    fieldErrors.value = {}
+  }
   return {
     propertyTypes,
     currentType,
@@ -212,6 +164,7 @@ export const usePropertyTypesStore = defineStore('propertyTypes', () => {
     updatePropertyType,
     deletePropertyType,
     fieldErrors,
-    clearError
+    clearError,
+    clearFieldErrors
   }
 })

@@ -1,9 +1,8 @@
 <script setup>
-import { computed } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
@@ -15,9 +14,23 @@ const userName = computed(() => {
   return ''
 })
 
-function handleLogout() {
-  authStore.logout()
-  router.push({ name: 'login' })
+async function handleLogout() {
+  try {
+    await authStore.logout()
+  } catch (e) {
+    // logout handles its own errors; ensure we don't leak exceptions to UI
+    console.warn('Logout failed:', e)
+  }
+}
+
+const showMenu = ref(false)
+
+function toggleMenu() {
+  showMenu.value = !showMenu.value
+}
+
+function closeMenu() {
+  showMenu.value = false
 }
 </script>
 
@@ -29,11 +42,17 @@ function handleLogout() {
         Estate Agency
       </RouterLink>
 
-      <nav class="navbar-nav" v-if="isAuthenticated">
-        <RouterLink to="/properties" class="nav-link">Properties</RouterLink>
-        <RouterLink to="/favorites" class="nav-link">Favorites</RouterLink>
-        <RouterLink v-if="isAdmin" to="/users" class="nav-link">Users</RouterLink>
-        <RouterLink v-if="isAdmin" to="/property-types" class="nav-link">Property Types</RouterLink>
+  <button class="navbar-burger" @click="toggleMenu" aria-label="Toggle menu" :aria-expanded="showMenu">
+        <span class="burger-line"></span>
+        <span class="burger-line"></span>
+        <span class="burger-line"></span>
+      </button>
+
+      <nav :class="['navbar-nav', { 'mobile-open': showMenu }]" v-if="isAuthenticated">
+  <RouterLink to="/properties" class="nav-link" @click="closeMenu">Объекты</RouterLink>
+  <RouterLink to="/favorites" class="nav-link" @click="closeMenu">Избранное</RouterLink>
+  <RouterLink v-if="isAdmin" to="/users" class="nav-link" @click="closeMenu">Пользователи</RouterLink>
+  <RouterLink v-if="isAdmin" to="/property-types" class="nav-link" @click="closeMenu">Типы недвижимости</RouterLink>
       </nav>
 
       <div class="navbar-actions">
@@ -41,13 +60,15 @@ function handleLogout() {
           <RouterLink to="/profile" class="user-info">
             <span class="user-avatar">👤</span>
             <span class="user-name">{{ userName }}</span>
-            <span v-if="isAdmin" class="admin-badge">Admin</span>
+            <span v-if="isAdmin" class="admin-badge">Админ</span>
           </RouterLink>
-          <button @click="handleLogout" class="btn btn-outline">Logout</button>
+          <button @click="handleLogout" class="btn btn-outline" :disabled="authStore.loading">
+            {{ authStore.loading ? 'Выход...' : 'Выйти' }}
+          </button>
         </template>
         <template v-else>
-          <RouterLink to="/login" class="btn btn-outline">Login</RouterLink>
-          <RouterLink to="/register" class="btn btn-primary">Register</RouterLink>
+          <RouterLink to="/login" class="btn btn-outline">Войти</RouterLink>
+          <RouterLink to="/register" class="btn btn-primary">Регистрация</RouterLink>
         </template>
       </div>
     </div>
@@ -175,9 +196,40 @@ function handleLogout() {
   background: #1d4ed8;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1100px) {
+  .navbar-burger {
+    display: block;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    margin-right: 0.5rem;
+  }
+
+  .burger-line {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: #374151;
+    margin: 4px 0;
+  }
+
   .navbar-nav {
     display: none;
+  }
+
+  .navbar-nav.mobile-open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 1rem;
+    gap: 0.5rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+    z-index: 90;
   }
 
   .user-name {

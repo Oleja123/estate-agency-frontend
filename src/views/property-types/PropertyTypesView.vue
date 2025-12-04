@@ -2,10 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
 import PaginationControl from '../../components/common/PaginationControl.vue'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
 import ModalDialog from '../../components/common/ModalDialog.vue'
-import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
 import paginationConfig from '../../config/pagination'
 
 const propertyTypesStore = usePropertyTypesStore()
@@ -40,7 +37,7 @@ async function loadTypes() {
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('ru-RU', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
@@ -67,7 +64,7 @@ function openDeleteDialog(type) {
 
 async function handleCreate() {
   if (!newTypeName.value.trim()) {
-    formError.value = 'Name is required'
+    formError.value = 'Требуется название'
     return
   }
   
@@ -78,13 +75,13 @@ async function handleCreate() {
     // reload current page
     await loadTypes()
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Failed to create property type'
+  formError.value = error.response?.data?.message || 'Не удалось создать тип недвижимости'
   }
 }
 
 async function handleUpdate() {
   if (!editTypeName.value.trim()) {
-    formError.value = 'Name is required'
+    formError.value = 'Требуется название'
     return
   }
   
@@ -97,7 +94,7 @@ async function handleUpdate() {
     // reload current page
     await loadTypes()
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Failed to update property type'
+    formError.value = error.response?.data?.message || 'Не удалось обновить тип недвижимости'
   }
 }
 
@@ -132,11 +129,11 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
   <div class="property-types-page">
     <div class="page-header">
       <div class="page-header-content">
-        <h1 class="page-title">Property Types</h1>
-        <p class="page-subtitle">Manage property type categories</p>
+        <h1 class="page-title">Типы недвижимости</h1>
+        <p class="page-subtitle">Управление категориями типов недвижимости</p>
       </div>
       <button @click="openCreateModal" class="btn btn-primary">
-        Add Property Type
+        Добавить тип недвижимости
       </button>
     </div>
 
@@ -147,15 +144,15 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
       @dismiss="propertyTypesStore.clearError"
     />
 
-    <LoadingSpinner v-if="propertyTypesStore.loading" message="Loading property types..." />
+  <LoadingSpinner v-if="propertyTypesStore.loading" message="Загрузка типов недвижимости..." />
 
     <template v-else>
       <div v-if="propertyTypesStore.propertyTypes.length === 0" class="empty-state">
         <div class="empty-icon">🏷️</div>
-        <h3>No Property Types</h3>
-        <p>Create your first property type to get started.</p>
+        <h3>Типы не найдены</h3>
+        <p>Создайте первый тип недвижимости, чтобы начать.</p>
         <button @click="openCreateModal" class="btn btn-primary">
-          Add Property Type
+          Добавить тип
         </button>
       </div>
 
@@ -167,14 +164,14 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
         >
           <div class="type-info">
             <h3 class="type-name">{{ type.name }}</h3>
-            <p class="type-meta">Created {{ formatDate(type.created_at) }}</p>
+            <p class="type-meta">Создано {{ formatDate(type.created_at) }}</p>
           </div>
           <div class="type-actions">
             <button @click="openEditModal(type)" class="action-btn">
-              Edit
+              Редактировать
             </button>
             <button @click="openDeleteDialog(type)" class="action-btn action-btn-danger">
-              Delete
+              Удалить
             </button>
           </div>
         </div>
@@ -183,7 +180,7 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
 
     <ModalDialog
       :show="showCreateModal"
-      title="Add Property Type"
+      title="Добавить тип недвижимости"
       size="small"
       @close="showCreateModal = false"
     >
@@ -195,27 +192,27 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
           @dismiss="propertyTypesStore.clearError"
         />
         <div class="form-group">
-          <label for="new-type-name" class="form-label">Name</label>
+          <label for="new-type-name" class="form-label">Название</label>
           <input
             id="new-type-name"
             v-model="newTypeName"
             type="text"
             class="form-input"
-            placeholder="e.g. Apartment, House, Commercial"
+            placeholder="Напр., Квартира, Дом, Коммерческая"
             @keyup.enter="handleCreate"
           />
           <span v-if="propertyTypesStore.fieldErrors && propertyTypesStore.fieldErrors.name" class="error-text">{{ propertyTypesStore.fieldErrors.name }}</span>
         </div>
       </div>
       <template #footer>
-        <button @click="showCreateModal = false" class="btn btn-outline">Cancel</button>
-        <button @click="handleCreate" class="btn btn-primary">Create</button>
+        <button @click="showCreateModal = false" class="btn btn-outline">Отмена</button>
+        <button @click="handleCreate" class="btn btn-primary">Создать</button>
       </template>
     </ModalDialog>
 
     <ModalDialog
       :show="showEditModal"
-      title="Edit Property Type"
+      title="Редактировать тип недвижимости"
       size="small"
       @close="showEditModal = false"
     >
@@ -227,7 +224,7 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
           @dismiss="propertyTypesStore.clearError"
         />
         <div class="form-group">
-          <label for="edit-type-name" class="form-label">Name</label>
+          <label for="edit-type-name" class="form-label">Название</label>
           <input
             id="edit-type-name"
             v-model="editTypeName"
@@ -239,8 +236,8 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
         </div>
       </div>
       <template #footer>
-        <button @click="showEditModal = false" class="btn btn-outline">Cancel</button>
-        <button @click="handleUpdate" class="btn btn-primary">Save</button>
+        <button @click="showEditModal = false" class="btn btn-outline">Отмена</button>
+        <button @click="handleUpdate" class="btn btn-primary">Сохранить</button>
       </template>
     </ModalDialog>
 
@@ -252,9 +249,9 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
 
     <ConfirmDialog
       :show="showDeleteDialog"
-      title="Delete Property Type"
-      :message="`Are you sure you want to delete '${selectedType?.name}'? This may affect properties using this type.`"
-      confirm-text="Delete"
+      title="Удалить тип недвижимости"
+      :message="`Вы уверены, что хотите удалить '${selectedType?.name}'? Это может повлиять на объекты недвижимости, использующие этот тип.`"
+      confirm-text="Удалить"
       @confirm="handleDelete"
       @cancel="showDeleteDialog = false"
     />

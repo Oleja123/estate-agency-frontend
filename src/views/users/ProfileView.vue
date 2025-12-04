@@ -3,8 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useUsersStore } from '../../stores/users'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
+// common components are registered globally in main.js
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -51,15 +50,15 @@ function validateProfileForm() {
   profileErrors.value = {}
 
   if (!profileForm.value.login) {
-    profileErrors.value.login = 'Login is required'
+    profileErrors.value.login = 'Логин обязателен'
   }
 
   if (!profileForm.value.first_name) {
-    profileErrors.value.first_name = 'First name is required'
+    profileErrors.value.first_name = 'Имя обязательно'
   }
 
   if (!profileForm.value.last_name) {
-    profileErrors.value.last_name = 'Last name is required'
+    profileErrors.value.last_name = 'Фамилия обязательна'
   }
 
   // Phone number validation: optional, but if provided must be digits (7-15) with optional leading +
@@ -67,7 +66,7 @@ function validateProfileForm() {
     const cleaned = String(profileForm.value.phone_number).replace(/[^0-9+]/g, '')
     const phoneRegex = /^\+?\d{7,15}$/
     if (!phoneRegex.test(cleaned)) {
-      profileErrors.value.phone_number = 'Invalid phone number format'
+      profileErrors.value.phone_number = 'Неверный формат номера телефона'
     }
   }
 
@@ -78,15 +77,15 @@ function validatePasswordForm() {
   passwordErrors.value = {}
   
   if (!passwordForm.value.current_password) {
-    passwordErrors.value.current_password = 'Current password is required'
+    passwordErrors.value.current_password = 'Текущий пароль обязателен'
   }
   
   if (!passwordForm.value.new_password) {
-    passwordErrors.value.new_password = 'New password is required'
+    passwordErrors.value.new_password = 'Новый пароль обязателен'
   }
   
   if (passwordForm.value.new_password !== passwordForm.value.confirm_password) {
-    passwordErrors.value.confirm_password = 'Passwords do not match'
+    passwordErrors.value.confirm_password = 'Пароли не совпадают'
   }
   
   return Object.keys(passwordErrors.value).length === 0
@@ -102,16 +101,16 @@ async function handleProfileSubmit() {
   try {
     await usersStore.updateProfile(currentUserId.value, profileForm.value)
     await authStore.updateCurrentUser()
-    successMessage.value = 'Profile updated successfully!'
+    successMessage.value = 'Профиль успешно обновлён!'
   } catch (error) {
     // prefer store-provided field errors
     if (usersStore.fieldErrors && Object.keys(usersStore.fieldErrors).length) {
       serverProfileErrors.value = usersStore.fieldErrors
       // map server errors into profileErrors so they show next to inputs
       profileErrors.value = { ...profileErrors.value, ...serverProfileErrors.value }
-      errorMessage.value = usersStore.error || 'Failed to update profile'
+        errorMessage.value = usersStore.error || 'Не удалось обновить профиль'
     } else {
-      errorMessage.value = error.response?.data?.message || 'Failed to update profile'
+        errorMessage.value = error.response?.data?.message || 'Не удалось обновить профиль'
     }
   } finally {
     loading.value = false
@@ -136,9 +135,9 @@ async function handlePasswordSubmit() {
       new_password: '',
       confirm_password: ''
     }
-    successMessage.value = 'Password changed successfully!'
+    successMessage.value = 'Пароль успешно изменён!'
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Failed to change password'
+    errorMessage.value = error.response?.data?.message || 'Не удалось изменить пароль'
   } finally {
     loading.value = false
   }
@@ -149,21 +148,27 @@ function goBack() {
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('ru-RU', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   })
+}
+
+function roleLabel(role) {
+  if (!role) return ''
+  if (role === 'admin') return 'Админ'
+  if (role === 'client' || role === 'user') return 'Пользователь'
+  // запасной вариант: капитализировать
+  return role.charAt(0).toUpperCase() + role.slice(1)
 }
 </script>
 
 <template>
   <div class="profile-page">
     <div class="page-header">
-      <button @click="goBack" class="back-link">
-        ← Back
-      </button>
-      <h1 class="page-title">My Profile</h1>
+      <BackButton>{{ 'Назад' }}</BackButton>
+      <h1 class="page-title">Мой профиль</h1>
     </div>
 
     <div class="profile-container">
@@ -176,9 +181,9 @@ function formatDate(dateString) {
           <p class="profile-login" v-if="user">{{ user.login }}</p>
           <div class="profile-meta" v-if="user">
             <span :class="['role-badge', `role-${user.role}`]">
-              {{ user.role }}
+              {{ roleLabel(user.role) }}
             </span>
-            <p class="joined-date">Joined {{ formatDate(user.created_at) }}</p>
+            <p class="joined-date">Зарегистрирован: {{ formatDate(user.created_at) }}</p>
           </div>
         </div>
 
@@ -187,13 +192,13 @@ function formatDate(dateString) {
             :class="['nav-item', { active: activeTab === 'profile' }]"
             @click="activeTab = 'profile'"
           >
-            Edit Profile
+            Редактировать профиль
           </button>
           <button 
             :class="['nav-item', { active: activeTab === 'password' }]"
             @click="activeTab = 'password'"
           >
-            Change Password
+            Изменить пароль
           </button>
         </nav>
       </div>
@@ -213,17 +218,17 @@ function formatDate(dateString) {
           @dismiss="errorMessage = ''"
         />
 
-        <LoadingSpinner v-if="loading" message="Saving..." />
+  <LoadingSpinner v-if="loading" message="Сохранение..." />
 
         <div v-else class="tab-content">
           <template v-if="activeTab === 'profile'">
             <div class="content-card">
-              <h3 class="content-title">Edit Profile</h3>
+              <h3 class="content-title">Редактировать профиль</h3>
               
               <form @submit.prevent="handleProfileSubmit" class="profile-form">
                 <div class="form-row">
                   <div class="form-group">
-                    <label for="first_name" class="form-label">First Name</label>
+                    <label for="first_name" class="form-label">Имя</label>
                     <input
                       id="first_name"
                       v-model="profileForm.first_name"
@@ -237,7 +242,7 @@ function formatDate(dateString) {
                   </div>
 
                   <div class="form-group">
-                    <label for="last_name" class="form-label">Last Name</label>
+                    <label for="last_name" class="form-label">Фамилия</label>
                     <input
                       id="last_name"
                       v-model="profileForm.last_name"
@@ -252,7 +257,7 @@ function formatDate(dateString) {
                 </div>
 
                 <div class="form-group">
-                  <label for="login" class="form-label">Login</label>
+                  <label for="login" class="form-label">Логин</label>
                   <input
                     id="login"
                     v-model="profileForm.login"
@@ -266,14 +271,14 @@ function formatDate(dateString) {
                 </div>
 
                 <div class="form-group">
-                  <label for="phone_number" class="form-label">Phone Number</label>
+                  <label for="phone_number" class="form-label">Телефон</label>
                   <input
                     id="phone_number"
                     v-model="profileForm.phone_number"
                     type="tel"
                     class="form-input"
                     :class="{ 'input-error': profileErrors.phone_number }"
-                    placeholder="+1234567890"
+                    placeholder="+71234567890"
                   />
                   <span v-if="profileErrors.phone_number" class="error-text">
                     {{ profileErrors.phone_number }}
@@ -281,7 +286,7 @@ function formatDate(dateString) {
                 </div>
 
                 <button type="submit" class="btn btn-primary">
-                  Save Changes
+                  Сохранить
                 </button>
               </form>
             </div>
@@ -289,11 +294,11 @@ function formatDate(dateString) {
 
           <template v-if="activeTab === 'password'">
             <div class="content-card">
-              <h3 class="content-title">Change Password</h3>
+              <h3 class="content-title">Изменить пароль</h3>
               
               <form @submit.prevent="handlePasswordSubmit" class="profile-form">
                 <div class="form-group">
-                  <label for="current_password" class="form-label">Current Password</label>
+                  <label for="current_password" class="form-label">Текущий пароль</label>
                   <input
                     id="current_password"
                     v-model="passwordForm.current_password"
@@ -307,7 +312,7 @@ function formatDate(dateString) {
                 </div>
 
                 <div class="form-group">
-                  <label for="new_password" class="form-label">New Password</label>
+                  <label for="new_password" class="form-label">Новый пароль</label>
                   <input
                     id="new_password"
                     v-model="passwordForm.new_password"
@@ -321,7 +326,7 @@ function formatDate(dateString) {
                 </div>
 
                 <div class="form-group">
-                  <label for="confirm_password" class="form-label">Confirm New Password</label>
+                  <label for="confirm_password" class="form-label">Подтвердите новый пароль</label>
                   <input
                     id="confirm_password"
                     v-model="passwordForm.confirm_password"
@@ -335,7 +340,7 @@ function formatDate(dateString) {
                 </div>
 
                 <button type="submit" class="btn btn-primary">
-                  Change Password
+                  Изменить пароль
                 </button>
               </form>
             </div>

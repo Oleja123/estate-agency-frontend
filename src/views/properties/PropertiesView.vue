@@ -4,10 +4,9 @@ import { RouterLink } from 'vue-router'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
 import { useAuthStore } from '../../stores/auth'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
-import PaginationControl from '../../components/common/PaginationControl.vue'
 import paginationConfig from '../../config/pagination'
+import PaginationControl from '../../components/common/PaginationControl.vue'
+import ImageLightbox from '../../components/common/ImageLightbox.vue'
 
 const propertiesStore = usePropertiesStore()
 const propertyTypesStore = usePropertyTypesStore()
@@ -25,11 +24,31 @@ const localFilters = ref({
   min_price: '',
   max_price: '',
   min_area: '',
-  max_area: ''
+  max_area: '',
+  // location filters (empty string => not used)
+  latitude: '',
+  longitude: '',
+  radius_km: ''
 })
 
 const transactionTypes = ['sale', 'rent']
 const propertyStatuses = ['active', 'sold', 'rented', 'inactive']
+
+function txLabel(t) {
+  if (t === 'sale') return 'Продажа'
+  if (t === 'rent') return 'Аренда'
+  return t
+}
+
+function statusLabel(s) {
+  switch (s) {
+    case 'active': return 'Активен'
+    case 'sold': return 'Продано'
+    case 'rented': return 'Арендовано'
+    case 'inactive': return 'Неактивен'
+    default: return s
+  }
+}
 
 onMounted(async () => {
   await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
@@ -41,12 +60,99 @@ watch(() => propertiesStore.filters, () => {
 }, { deep: true })
 
 function applyFilters() {
+  // clear previous error
+  propertiesStore.clearError()
+
+  // validate numeric ranges: price and area
+  const minPrice = localFilters.value.min_price === '' || localFilters.value.min_price === null
+    ? null
+    : Number(localFilters.value.min_price)
+  const maxPrice = localFilters.value.max_price === '' || localFilters.value.max_price === null
+    ? null
+    : Number(localFilters.value.max_price)
+
+  const minArea = localFilters.value.min_area === '' || localFilters.value.min_area === null
+    ? null
+    : Number(localFilters.value.min_area)
+  const maxArea = localFilters.value.max_area === '' || localFilters.value.max_area === null
+    ? null
+    : Number(localFilters.value.max_area)
+
+  // negative value checks
+  if (minPrice !== null && Number.isFinite(minPrice) && minPrice < 0) {
+    propertiesStore.error = 'Минимальная цена не может быть отрицательной.'
+    return
+  }
+
+  if (maxPrice !== null && Number.isFinite(maxPrice) && maxPrice < 0) {
+    propertiesStore.error = 'Максимальная цена не может быть отрицательной.'
+    return
+  }
+
+  if (minArea !== null && Number.isFinite(minArea) && minArea < 0) {
+    propertiesStore.error = 'Минимальная площадь не может быть отрицательной.'
+    return
+  }
+
+  if (maxArea !== null && Number.isFinite(maxArea) && maxArea < 0) {
+    propertiesStore.error = 'Максимальная площадь не может быть отрицательной.'
+    return
+  }
+
+  // range consistency checks
+  if (minPrice !== null && maxPrice !== null && Number.isFinite(minPrice) && Number.isFinite(maxPrice) && maxPrice < minPrice) {
+    propertiesStore.error = 'Максимальная цена не может быть меньше минимальной.'
+    return
+  }
+
+  if (minArea !== null && maxArea !== null && Number.isFinite(minArea) && Number.isFinite(maxArea) && maxArea < minArea) {
+    propertiesStore.error = 'Максимальная площадь не может быть меньше минимальной.'
+    return
+  }
+
+  // location / radius validation
+  const latRaw = localFilters.value.latitude === '' || localFilters.value.latitude === null ? null : localFilters.value.latitude
+  const lngRaw = localFilters.value.longitude === '' || localFilters.value.longitude === null ? null : localFilters.value.longitude
+  const radRaw = localFilters.value.radius_km === '' || localFilters.value.radius_km === null ? null : localFilters.value.radius_km
+
+  const latNum = latRaw === null ? null : Number(latRaw)
+  const lngNum = lngRaw === null ? null : Number(lngRaw)
+  const radNum = radRaw === null ? null : Number(radRaw)
+
+  if (radNum !== null && (!Number.isFinite(radNum) || radNum < 0)) {
+    propertiesStore.error = 'Радиус должен быть положительным числом.'
+    return
+  }
+
+    // Проверка корректности координат
+    if ((latNum !== null && (!Number.isFinite(latNum) || latNum < -90 || latNum > 90)) || (lngNum !== null && (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180))) {
+      propertiesStore.error = 'Координаты некорректны.'
+      return
+    }
+
+  // if user provided radius but not coords -> error
+  if (radNum !== null && (latNum === null || lngNum === null)) {
+    propertiesStore.error = 'Укажите координаты (нажмите "Use my location" или введите вручную), чтобы фильтровать по расстоянию.'
+    return
+  }
+
   const filters = {}
   Object.entries(localFilters.value).forEach(([key, value]) => {
-    if (value !== '' && value !== null) {
+    // include empty-string values so selecting "All" clears the filter
+    if (value !== null && value !== undefined) {
+      // skip raw location strings -- we'll add parsed numeric values below
+      if (['latitude', 'longitude', 'radius_km'].includes(key)) return
       filters[key] = value
     }
   })
+
+  // attach numeric location filters when present
+  if (latNum !== null && lngNum !== null) {
+    filters.latitude = latNum
+    filters.longitude = lngNum
+    filters.radius_km = radNum !== null ? radNum : 5 // default 5 km if not provided
+  }
+
   propertiesStore.setFilters({ ...filters, offset: 0 })
 }
 
@@ -60,9 +166,39 @@ function resetFilters() {
     min_price: '',
     max_price: '',
     min_area: '',
-    max_area: ''
+    max_area: '',
+    latitude: '',
+    longitude: '',
+    radius_km: ''
   }
   propertiesStore.resetFilters()
+}
+
+function requestLocation() {
+  propertiesStore.clearError()
+  if (!navigator.geolocation) {
+    propertiesStore.error = 'Geolocation is not supported by your browser.'
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords
+      // store as strings to keep binding with inputs
+      localFilters.value.latitude = String(Number(latitude).toFixed(6))
+      localFilters.value.longitude = String(Number(longitude).toFixed(6))
+    },
+    (err) => {
+      propertiesStore.error = err.message || 'Failed to get current location.'
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  )
+}
+
+function clearLocation() {
+  localFilters.value.latitude = ''
+  localFilters.value.longitude = ''
+  localFilters.value.radius_km = ''
 }
 
 function handlePageChange(page) {
@@ -71,16 +207,16 @@ function handlePageChange(page) {
 }
 
 function formatPrice(price) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'RUB',
     maximumFractionDigits: 0
   }).format(price)
 }
 
 function getPropertyTypeName(typeId) {
   const type = propertyTypesStore.propertyTypes.find(t => t.id === typeId)
-  return type ? type.name : 'Unknown'
+  return type ? type.name : 'Неизвестно'
 }
 
 function getStatusClass(status) {
@@ -92,21 +228,87 @@ function getStatusClass(status) {
     default: return ''
   }
 }
+
+function getImageSrc(property) {
+  // Use `property.image` for list cards (per swagger)
+  const img = property?.image || null
+  if (!img) return null
+  // Если бэкенд предоставил поле url, использовать его
+  if (img.url) return img.url
+  const data = img.data
+  const filename = img.filename || ''
+  if (data) {
+    const ext = filename.split('.').pop()?.toLowerCase() || ''
+    let mime = 'image/jpeg'
+    if (ext === 'png') mime = 'image/png'
+    else if (ext === 'webp') mime = 'image/webp'
+    else if (ext === 'gif') mime = 'image/gif'
+    else if (ext === 'svg') mime = 'image/svg+xml'
+    return `data:${mime};base64,${data}`
+  }
+  return null
+}
+
+const lightboxVisible = ref(false)
+const lightboxImages = ref([])
+const lightboxStartIndex = ref(0)
+
+function buildListImageSrcList(property) {
+  const list = []
+  // prefer property.images if present
+  if (Array.isArray(property?.images) && property.images.length > 0) {
+    for (const img of property.images) {
+      if (!img) continue
+      if (img.url) list.push(img.url)
+      else if (img.data) {
+        const filename = img.filename || ''
+        const ext = filename.split('.').pop()?.toLowerCase() || ''
+        let mime = 'image/jpeg'
+        if (ext === 'png') mime = 'image/png'
+        else if (ext === 'webp') mime = 'image/webp'
+        else if (ext === 'gif') mime = 'image/gif'
+        else if (ext === 'svg') mime = 'image/svg+xml'
+        list.push(`data:${mime};base64,${img.data}`)
+      }
+    }
+  } else if (property?.image) {
+    const img = property.image
+    if (img.url) list.push(img.url)
+    else if (img.data) {
+      const filename = img.filename || ''
+      const ext = filename.split('.').pop()?.toLowerCase() || ''
+      let mime = 'image/jpeg'
+      if (ext === 'png') mime = 'image/png'
+      else if (ext === 'webp') mime = 'image/webp'
+      else if (ext === 'gif') mime = 'image/gif'
+      else if (ext === 'svg') mime = 'image/svg+xml'
+      list.push(`data:${mime};base64,${img.data}`)
+    }
+  }
+  return list
+}
+
+function openPropertyLightbox(property, start = 0) {
+  lightboxImages.value = buildListImageSrcList(property)
+  lightboxStartIndex.value = start
+  if (lightboxImages.value.length === 0) return
+  lightboxVisible.value = true
+}
 </script>
 
 <template>
   <div class="properties-page">
     <div class="page-header">
       <div class="page-header-content">
-        <h1 class="page-title">Properties</h1>
-        <p class="page-subtitle">Browse our collection of properties</p>
+  <h1 class="page-title">Объекты недвижимости</h1>
+  <p class="page-subtitle">Просмотр доступных объектов</p>
       </div>
       <div class="page-header-actions">
         <button @click="showFilters = !showFilters" class="btn btn-outline">
-          {{ showFilters ? 'Hide Filters' : 'Show Filters' }}
+          {{ showFilters ? 'Скрыть фильтры' : 'Показать фильтры' }}
         </button>
         <RouterLink v-if="isAdmin" to="/properties/create" class="btn btn-primary">
-          Add Property
+          Добавить объект
         </RouterLink>
       </div>
     </div>
@@ -115,19 +317,19 @@ function getStatusClass(status) {
       <div v-if="showFilters" class="filters-panel">
         <div class="filters-grid">
           <div class="filter-group">
-            <label class="filter-label">Search</label>
+            <label class="filter-label">Поиск</label>
             <input
               v-model="localFilters.search"
               type="text"
               class="filter-input"
-              placeholder="Search properties..."
+              placeholder="Поиск объектов..."
             />
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Property Type</label>
+            <label class="filter-label">Тип недвижимости</label>
             <select v-model="localFilters.type_id" class="filter-input">
-              <option value="">All Types</option>
+              <option value="">Все типы</option>
               <option
                 v-for="type in propertyTypesStore.propertyTypes"
                 :key="type.id"
@@ -139,79 +341,100 @@ function getStatusClass(status) {
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Transaction Type</label>
+            <label class="filter-label">Тип сделки</label>
             <select v-model="localFilters.transaction_type" class="filter-input">
-              <option value="">All</option>
+              <option value="">Все</option>
               <option v-for="type in transactionTypes" :key="type" :value="type">
-                {{ type.charAt(0).toUpperCase() + type.slice(1) }}
+                {{ txLabel(type) }}
               </option>
             </select>
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">City</label>
+            <label class="filter-label">Город</label>
             <input
               v-model="localFilters.city"
               type="text"
               class="filter-input"
-              placeholder="Enter city..."
+              placeholder="Введите город..."
             />
           </div>
 
+          <!-- location filter moved below grid -->
+
           <div class="filter-group">
-            <label class="filter-label">Status</label>
+            <label class="filter-label">Статус</label>
             <select v-model="localFilters.property_status" class="filter-input">
-              <option value="">All</option>
+              <option value="">Все</option>
               <option v-for="status in propertyStatuses" :key="status" :value="status">
-                {{ status.charAt(0).toUpperCase() + status.slice(1) }}
+                {{ statusLabel(status) }}
               </option>
             </select>
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Min Price</label>
+            <label class="filter-label">Мин. цена</label>
             <input
               v-model="localFilters.min_price"
               type="number"
               class="filter-input"
-              placeholder="Min price..."
+              placeholder="Мин. цена..."
             />
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Max Price</label>
+            <label class="filter-label">Макс. цена</label>
             <input
               v-model="localFilters.max_price"
               type="number"
               class="filter-input"
-              placeholder="Max price..."
+              placeholder="Макс. цена..."
             />
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Min Area (m²)</label>
+            <label class="filter-label">Мин. площадь (м²)</label>
             <input
               v-model="localFilters.min_area"
               type="number"
               class="filter-input"
-              placeholder="Min area..."
+              placeholder="Мин. площадь..."
             />
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">Max Area (m²)</label>
+            <label class="filter-label">Макс. площадь (м²)</label>
             <input
               v-model="localFilters.max_area"
               type="number"
               class="filter-input"
-              placeholder="Max area..."
+              placeholder="Макс. площадь..."
             />
           </div>
         </div>
 
+        <!-- separate full-width location filter row -->
+        <div class="filters-location-row">
+          <div class="filter-group full-width">
+            <label class="filter-label">Использовать моё местоположение</label>
+            <div style="display:flex;gap:.5rem;align-items:center;">
+              <button type="button" class="btn btn-outline" @click="requestLocation">Определить местоположение</button>
+              <button type="button" class="btn btn-outline" @click="clearLocation">Очистить</button>
+            </div>
+            <div style="margin-top:.5rem;display:flex;gap:.5rem;">
+              <input v-model="localFilters.latitude" type="text" class="filter-input" placeholder="Широта" />
+              <input v-model="localFilters.longitude" type="text" class="filter-input" placeholder="Долгота" />
+            </div>
+            <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
+              <input v-model="localFilters.radius_km" type="number" min="0" step="1" class="filter-input" placeholder="Радиус (км)" />
+              <small style="color:#6b7280">Укажите радиус для фильтрации объектов по расстоянию</small>
+            </div>
+          </div>
+        </div>
+
         <div class="filters-actions">
-          <button @click="resetFilters" class="btn btn-outline">Reset</button>
-          <button @click="applyFilters" class="btn btn-primary">Apply Filters</button>
+          <button @click="resetFilters" class="btn btn-outline">Сбросить</button>
+          <button @click="applyFilters" class="btn btn-primary">Применить</button>
         </div>
       </div>
     </Transition>
@@ -223,13 +446,13 @@ function getStatusClass(status) {
       @dismiss="propertiesStore.clearError"
     />
 
-    <LoadingSpinner v-if="propertiesStore.loading" message="Loading properties..." />
+  <LoadingSpinner v-if="propertiesStore.loading" message="Загрузка объектов..." />
 
     <template v-else>
       <div v-if="propertiesStore.properties.length === 0" class="empty-state">
         <div class="empty-icon">🏠</div>
-        <h3>No Properties Found</h3>
-        <p>Try adjusting your filters or check back later.</p>
+        <h3>Объекты не найдены</h3>
+        <p>Попробуйте изменить фильтры или зайти позже.</p>
       </div>
 
       <div v-else class="properties-grid">
@@ -239,12 +462,13 @@ function getStatusClass(status) {
           :to="`/properties/${property.id}`"
           class="property-card"
         >
-          <div class="property-image">
+          <div :class="['property-image', { 'has-image': getImageSrc(property) }]">
+            <img v-if="getImageSrc(property)" :src="getImageSrc(property)" :alt="property.title" class="property-img" @click.stop.prevent="openPropertyLightbox(property, 0)" />
             <span class="property-type-badge">
               {{ getPropertyTypeName(property.type_id) }}
             </span>
             <span :class="['property-status-badge', getStatusClass(property.property_status)]">
-              {{ property.property_status }}
+              {{ statusLabel(property.property_status) }}
             </span>
           </div>
           <div class="property-content">
@@ -252,15 +476,17 @@ function getStatusClass(status) {
             <p class="property-address">📍 {{ property.property_address }}, {{ property.city }}</p>
             <div class="property-details">
               <span class="property-area">📐 {{ property.area }} m²</span>
-              <span class="property-transaction">{{ property.transaction_type }}</span>
+              <span class="property-transaction">{{ txLabel(property.transaction_type) }}</span>
             </div>
-            <div class="property-price">
+              <div class="property-price">
               {{ formatPrice(property.price) }}
-              <span v-if="property.transaction_type === 'rent'" class="price-period">/month</span>
+              <span v-if="property.transaction_type === 'rent'" class="price-period">/сутки</span>
             </div>
           </div>
         </RouterLink>
       </div>
+
+      <ImageLightbox :images="lightboxImages" :startIndex="lightboxStartIndex" v-model="lightboxVisible" @close="lightboxVisible = false" />
 
       <PaginationControl
         :current-page="propertiesStore.currentPage"
@@ -349,6 +575,14 @@ function getStatusClass(status) {
   gap: 0.75rem;
 }
 
+.filters-location-row {
+  margin: 1rem 0;
+}
+
+.filter-group.full-width {
+  width: 100%;
+}
+
 .btn {
   padding: 0.625rem 1rem;
   border-radius: 8px;
@@ -435,6 +669,24 @@ function getStatusClass(status) {
   content: '🏠';
   font-size: 4rem;
   opacity: 0.5;
+}
+
+.property-image.has-image::after {
+  display: none;
+}
+
+.property-image .property-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.property-image .property-type-badge,
+.property-image .property-status-badge {
+  z-index: 2;
 }
 
 .property-type-badge {

@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
-import AlertMessage from '../../components/common/AlertMessage.vue'
+// AlertMessage registered globally
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -19,37 +19,37 @@ const form = ref({
 const errors = ref({})
 const showError = ref(false)
 const showSuccess = ref(false)
-// if backend returns field errors, authStore.fieldErrors will be used
+// если бэкенд вернёт fieldErrors, они будут использованы (authStore.fieldErrors)
 
 function validateForm() {
   errors.value = {}
   
   if (!form.value.login) {
-    errors.value.login = 'Login is required'
+    errors.value.login = 'Логин обязателен'
   }
   
     if (!form.value.password) {
-      errors.value.password = 'Password is required'
+      errors.value.password = 'Пароль обязателен'
     }
   
   if (form.value.password !== form.value.confirmPassword) {
-    errors.value.confirmPassword = 'Passwords do not match'
+    errors.value.confirmPassword = 'Пароли не совпадают'
   }
   
   if (!form.value.first_name) {
-    errors.value.first_name = 'First name is required'
+    errors.value.first_name = 'Имя обязательно'
   }
   
   if (!form.value.last_name) {
-    errors.value.last_name = 'Last name is required'
+    errors.value.last_name = 'Фамилия обязательна'
   }
 
   // Phone number is optional, but if provided must be valid
-  if (form.value.phone_number) {
+    if (form.value.phone_number) {
     const cleaned = String(form.value.phone_number).replace(/[^0-9+]/g, '')
     const phoneRegex = /^\+?\d{7,15}$/
     if (!phoneRegex.test(cleaned)) {
-      errors.value.phone_number = 'Invalid phone number format'
+      errors.value.phone_number = 'Неверный формат номера телефона'
     }
   }
   
@@ -61,6 +61,8 @@ async function handleSubmit() {
   
   showError.value = false
   showSuccess.value = false
+  // clear previous server errors
+  authStore.clearError()
   
   try {
     const { confirmPassword, ...userData } = form.value
@@ -90,14 +92,14 @@ function dismissError() {
   <div class="auth-container">
     <div class="auth-card">
       <div class="auth-header">
-        <h1 class="auth-title">Create Account</h1>
-        <p class="auth-subtitle">Register for a new account</p>
+        <h1 class="auth-title">Создать аккаунт</h1>
+        <p class="auth-subtitle">Регистрация нового пользователя</p>
       </div>
 
       <AlertMessage
         v-if="showSuccess"
         type="success"
-        message="Registration successful! Redirecting to login..."
+        message="Регистрация прошла успешно! Перенаправление на вход..."
         :dismissible="false"
       />
 
@@ -109,84 +111,88 @@ function dismissError() {
       />
 
       <form @submit.prevent="handleSubmit" class="auth-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="first_name" class="form-label">First Name</label>
-            <input
-              id="first_name"
-              v-model="form.first_name"
-              type="text"
-              class="form-input"
-              :class="{ 'input-error': errors.first_name }"
-              placeholder="John"
-            />
-            <span v-if="errors.first_name" class="error-text">{{ errors.first_name }}</span>
-          </div>
-
-          <div class="form-group">
-            <label for="last_name" class="form-label">Last Name</label>
-            <input
-              id="last_name"
-              v-model="form.last_name"
-              type="text"
-              class="form-input"
-              :class="{ 'input-error': errors.last_name }"
-              placeholder="Doe"
-            />
-            <span v-if="errors.last_name" class="error-text">{{ errors.last_name }}</span>
-          </div>
+        <div class="form-group">
+          <label for="first_name" class="form-label">Имя</label>
+          <input
+            id="first_name"
+            v-model="form.first_name"
+            type="text"
+            class="form-input"
+            :class="{ 'input-error': errors.first_name || authStore.fieldErrors?.first_name }"
+            placeholder="Иван"
+          />
+          <span v-if="errors.first_name" class="error-text">{{ errors.first_name }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.first_name" class="error-text">{{ authStore.fieldErrors.first_name }}</span>
         </div>
 
         <div class="form-group">
-          <label for="login" class="form-label">Login</label>
+          <label for="last_name" class="form-label">Фамилия</label>
+          <input
+            id="last_name"
+            v-model="form.last_name"
+            type="text"
+            class="form-input"
+            :class="{ 'input-error': errors.last_name || authStore.fieldErrors?.last_name }"
+            placeholder="Иванов"
+          />
+          <span v-if="errors.last_name" class="error-text">{{ errors.last_name }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.last_name" class="error-text">{{ authStore.fieldErrors.last_name }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="login" class="form-label">Логин</label>
           <input
             id="login"
             v-model="form.login"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.login }"
-            placeholder="your login"
+            :class="{ 'input-error': errors.login || authStore.fieldErrors?.login }"
+            placeholder="ваш логин"
           />
           <span v-if="errors.login" class="error-text">{{ errors.login }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.login" class="error-text">{{ authStore.fieldErrors.login }}</span>
         </div>
 
         <div class="form-group">
-          <label for="phone_number" class="form-label">Phone Number (Optional)</label>
+          <label for="phone_number" class="form-label">Телефон (необязательно)</label>
           <input
             id="phone_number"
             v-model="form.phone_number"
             type="tel"
             class="form-input"
-            :class="{ 'input-error': errors.phone_number }"
-            placeholder="+1234567890"
+            :class="{ 'input-error': errors.phone_number || authStore.fieldErrors?.phone_number }"
+            placeholder="+71234567890"
           />
           <span v-if="errors.phone_number" class="error-text">{{ errors.phone_number }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.phone_number" class="error-text">{{ authStore.fieldErrors.phone_number }}</span>
         </div>
 
         <div class="form-group">
-          <label for="password" class="form-label">Password</label>
+          <label for="password" class="form-label">Пароль</label>
           <input
             id="password"
             v-model="form.password"
             type="password"
             class="form-input"
-            :class="{ 'input-error': errors.password }"
-              placeholder="Enter password"
+            :class="{ 'input-error': errors.password || authStore.fieldErrors?.password }"
+              placeholder="Введите пароль"
           />
           <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.password" class="error-text">{{ authStore.fieldErrors.password }}</span>
         </div>
 
         <div class="form-group">
-          <label for="confirmPassword" class="form-label">Confirm Password</label>
+          <label for="confirmPassword" class="form-label">Подтвердите пароль</label>
           <input
             id="confirmPassword"
             v-model="form.confirmPassword"
             type="password"
             class="form-input"
-            :class="{ 'input-error': errors.confirmPassword }"
-            placeholder="Confirm your password"
+            :class="{ 'input-error': errors.confirmPassword || authStore.fieldErrors?.confirmPassword }"
+            placeholder="Подтвердите пароль"
           />
           <span v-if="errors.confirmPassword" class="error-text">{{ errors.confirmPassword }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.confirmPassword" class="error-text">{{ authStore.fieldErrors.confirmPassword }}</span>
         </div>
 
         <button
@@ -194,14 +200,14 @@ function dismissError() {
           class="btn btn-primary btn-block"
           :disabled="authStore.loading"
         >
-          {{ authStore.loading ? 'Creating account...' : 'Register' }}
+          {{ authStore.loading ? 'Создание аккаунта...' : 'Зарегистрироваться' }}
         </button>
       </form>
 
       <div class="auth-footer">
         <p>
-          Already have an account?
-          <RouterLink to="/login" class="auth-link">Sign In</RouterLink>
+          Уже есть аккаунт?
+          <RouterLink to="/login" class="auth-link">Войти</RouterLink>
         </p>
       </div>
     </div>

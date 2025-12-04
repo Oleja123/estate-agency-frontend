@@ -3,9 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useUsersStore } from '../../stores/users'
 import { useAuthStore } from '../../stores/auth'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
-import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
+// common components are registered globally in main.js
 
 const route = useRoute()
 const router = useRouter()
@@ -17,13 +15,19 @@ const isAdmin = computed(() => authStore.isAdmin)
 const isOwnProfile = computed(() => authStore.currentUserId === parseInt(route.params.id))
 const showDeleteDialog = ref(false)
 
+function roleLabel(role) {
+  if (role === 'admin') return 'Администратор'
+  if (role === 'client') return 'Клиент'
+  return role
+}
+
 onMounted(async () => {
   const id = parseInt(route.params.id)
   await usersStore.fetchUser(id)
 })
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('ru-RU', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -56,7 +60,7 @@ async function toggleActive() {
 
 <template>
   <div class="user-detail-page">
-    <LoadingSpinner v-if="usersStore.loading" message="Loading user..." />
+    <LoadingSpinner v-if="usersStore.loading" message="Загрузка пользователя..." />
 
     <AlertMessage
       v-if="usersStore.error"
@@ -67,18 +71,14 @@ async function toggleActive() {
 
     <template v-if="user && !usersStore.loading">
       <div class="page-header">
-        <RouterLink v-if="isAdmin" to="/users" class="back-link">
-          ← Back to Users
-        </RouterLink>
-        <RouterLink v-else to="/" class="back-link">
-          ← Back to Home
-        </RouterLink>
+        <BackButton v-if="isAdmin" to="/users">К списку пользователей</BackButton>
+        <BackButton v-else to="/">На главную</BackButton>
         <div v-if="isAdmin && !isOwnProfile" class="page-actions">
           <button @click="toggleActive" class="btn btn-outline">
-            {{ user.is_active ? 'Deactivate' : 'Activate' }}
+            {{ user.is_active ? 'Деактивировать' : 'Активировать' }}
           </button>
           <button @click="showDeleteDialog = true" class="btn btn-danger">
-            Delete
+            Удалить
           </button>
         </div>
       </div>
@@ -91,10 +91,10 @@ async function toggleActive() {
               <p class="profile-login">{{ user.login }}</p>
             <div class="profile-badges">
               <span :class="['role-badge', `role-${user.role}`]">
-                {{ user.role }}
+                {{ roleLabel(user.role) }}
               </span>
               <span :class="['status-badge', user.is_active ? 'status-active' : 'status-inactive']">
-                {{ user.is_active ? 'Active' : 'Inactive' }}
+                {{ user.is_active ? 'Активен' : 'Неактивен' }}
               </span>
             </div>
           </div>
@@ -102,37 +102,37 @@ async function toggleActive() {
 
         <div class="profile-details">
           <div class="detail-card">
-            <h3>Contact Information</h3>
+            <h3>Контактная информация</h3>
             <div class="detail-row">
-              <span class="detail-label">Login</span>
+              <span class="detail-label">Логин</span>
               <span class="detail-value">{{ user.login }}</span>
             </div>
             <div v-if="user.phone_number" class="detail-row">
-              <span class="detail-label">Phone</span>
+              <span class="detail-label">Телефон</span>
               <span class="detail-value">{{ user.phone_number }}</span>
             </div>
           </div>
 
           <div class="detail-card">
-            <h3>Account Details</h3>
+            <h3>Данные аккаунта</h3>
             <div class="detail-row">
-              <span class="detail-label">User ID</span>
+              <span class="detail-label">ID пользователя</span>
               <span class="detail-value">#{{ user.id }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Role</span>
-              <span class="detail-value capitalize">{{ user.role }}</span>
+              <span class="detail-label">Роль</span>
+              <span class="detail-value capitalize">{{ roleLabel(user.role) }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Status</span>
-              <span class="detail-value">{{ user.is_active ? 'Active' : 'Inactive' }}</span>
+              <span class="detail-label">Статус</span>
+              <span class="detail-value">{{ user.is_active ? 'Активен' : 'Неактивен' }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Joined</span>
+              <span class="detail-label">Дата регистрации</span>
               <span class="detail-value">{{ formatDate(user.created_at) }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Last Updated</span>
+              <span class="detail-label">Обновлено</span>
               <span class="detail-value">{{ formatDate(user.updated_at) }}</span>
             </div>
           </div>
@@ -140,7 +140,7 @@ async function toggleActive() {
 
         <div v-if="isOwnProfile" class="profile-actions">
           <RouterLink to="/profile" class="btn btn-primary">
-            Edit Profile
+            Редактировать профиль
           </RouterLink>
         </div>
       </div>
@@ -148,9 +148,9 @@ async function toggleActive() {
 
     <ConfirmDialog
       :show="showDeleteDialog"
-      title="Delete User"
-      :message="`Are you sure you want to delete ${user?.first_name} ${user?.last_name}? This action cannot be undone.`"
-      confirm-text="Delete"
+      title="Удалить пользователя"
+      :message="`Вы уверены, что хотите удалить ${user?.first_name} ${user?.last_name}? Это действие необратимо.`"
+      confirm-text="Удалить"
       @confirm="handleDelete"
       @cancel="showDeleteDialog = false"
     />

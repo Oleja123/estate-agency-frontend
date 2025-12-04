@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
-import AlertMessage from '../../components/common/AlertMessage.vue'
+// AlertMessage registered globally
 
 const router = useRouter()
 const route = useRoute()
@@ -20,11 +20,11 @@ function validateForm() {
   errors.value = {}
 
   if (!form.value.login) {
-    errors.value.login = 'Login is required'
+    errors.value.login = 'Логин обязателен'
   }
 
   if (!form.value.password) {
-    errors.value.password = 'Password is required'
+    errors.value.password = 'Пароль обязателен'
   }
 
   return Object.keys(errors.value).length === 0
@@ -34,6 +34,8 @@ async function handleSubmit() {
   if (!validateForm()) return
   
   showError.value = false
+  // clear previous server-side errors
+  authStore.clearError()
   
   try {
     await authStore.login(form.value.login, form.value.password)
@@ -59,8 +61,8 @@ function dismissError() {
   <div class="auth-container">
     <div class="auth-card">
       <div class="auth-header">
-        <h1 class="auth-title">Welcome Back</h1>
-        <p class="auth-subtitle">Sign in to your account</p>
+        <h1 class="auth-title">Добро пожаловать</h1>
+        <p class="auth-subtitle">Войдите в аккаунт</p>
       </div>
 
       <AlertMessage
@@ -72,29 +74,31 @@ function dismissError() {
 
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-group">
-          <label for="login" class="form-label">Login</label>
+          <label for="login" class="form-label">Логин</label>
           <input
             id="login"
             v-model="form.login"
             type="text"
             class="form-input"
-            :class="{ 'input-error': errors.login }"
-            placeholder="Enter your login"
+            :class="{ 'input-error': errors.login || authStore.fieldErrors?.login }"
+            placeholder="Введите логин"
           />
           <span v-if="errors.login" class="error-text">{{ errors.login }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.login" class="error-text">{{ authStore.fieldErrors.login }}</span>
         </div>
 
         <div class="form-group">
-          <label for="password" class="form-label">Password</label>
+          <label for="password" class="form-label">Пароль</label>
           <input
             id="password"
             v-model="form.password"
             type="password"
             class="form-input"
-            :class="{ 'input-error': errors.password }"
-            placeholder="Enter your password"
+            :class="{ 'input-error': errors.password || authStore.fieldErrors?.password }"
+            placeholder="Введите пароль"
           />
           <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
+          <span v-else-if="authStore.fieldErrors && authStore.fieldErrors.password" class="error-text">{{ authStore.fieldErrors.password }}</span>
         </div>
 
         <button
@@ -102,14 +106,14 @@ function dismissError() {
           class="btn btn-primary btn-block"
           :disabled="authStore.loading"
         >
-          {{ authStore.loading ? 'Signing in...' : 'Sign In' }}
+          {{ authStore.loading ? 'Вход...' : 'Войти' }}
         </button>
       </form>
 
       <div class="auth-footer">
         <p>
-          Don't have an account?
-          <RouterLink to="/register" class="auth-link">Register</RouterLink>
+          Нет аккаунта?
+          <RouterLink to="/register" class="auth-link">Регистрация</RouterLink>
         </p>
       </div>
     </div>

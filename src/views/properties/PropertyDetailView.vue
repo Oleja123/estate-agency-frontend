@@ -1,12 +1,11 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
 import { useAuthStore } from '../../stores/auth'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
-import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
+// common components are registered globally in main.js
 import paginationConfig from '../../config/pagination'
 
 const route = useRoute()
@@ -20,23 +19,124 @@ const isAdmin = computed(() => authStore.isAdmin)
 const showDeleteDialog = ref(false)
 const isFavorite = ref(false)
 const favoriteLoading = ref(false)
+const selectedImageIndex = ref(0)
+const lightboxVisible = ref(false)
+const lightboxImages = ref([])
+const lightboxStartIndex = ref(0)
+// responsive thumbnails
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200)
+
+function updateWindowWidth() {
+  if (typeof window === 'undefined') return
+  windowWidth.value = window.innerWidth
+}
+
+const visibleThumbCount = computed(() => {
+  const total = (property.value && Array.isArray(property.value.images)) ? property.value.images.length : 0
+  if (windowWidth.value <= 420) return Math.min(2, total)
+  if (windowWidth.value <= 640) return Math.min(3, total)
+  if (windowWidth.value <= 900) return Math.min(4, total)
+  return total
+})
+
+const visibleImages = computed(() => {
+  if (!property.value || !Array.isArray(property.value.images)) return []
+  return property.value.images.slice(0, visibleThumbCount.value)
+})
+
+const hiddenCount = computed(() => {
+  const total = (property.value && Array.isArray(property.value.images)) ? property.value.images.length : 0
+  return Math.max(0, total - visibleImages.value.length)
+})
 
 onMounted(async () => {
   const id = parseInt(route.params.id)
   await propertiesStore.fetchProperty(id)
+  // initialize favorite state from backend field when available
+  isFavorite.value = !!propertiesStore.currentProperty?.is_favorited
   await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
+  // setup responsive thumbnail listener
+  updateWindowWidth()
+  window.addEventListener('resize', updateWindowWidth)
 })
 
+onUnmounted(() => {
+  try { window.removeEventListener('resize', updateWindowWidth) } catch (e) {}
+})
+
+// keep local isFavorite in sync when store updates currentProperty
+watch(() => propertiesStore.currentProperty, (newVal) => {
+  if (newVal && typeof newVal.is_favorited !== 'undefined') {
+    isFavorite.value = !!newVal.is_favorited
+  }
+  // reset selected image when property changes
+  selectedImageIndex.value = 0
+})
+
+function getImageSrcFromItem(img) {
+  if (!img) return null
+  if (img.url) return img.url
+  const data = img.data
+  const filename = img.filename || ''
+  if (data) {
+    const ext = filename.split('.').pop()?.toLowerCase() || ''
+    let mime = 'image/jpeg'
+    if (ext === 'png') mime = 'image/png'
+    else if (ext === 'webp') mime = 'image/webp'
+    else if (ext === 'gif') mime = 'image/gif'
+    else if (ext === 'svg') mime = 'image/svg+xml'
+    return `data:${mime};base64,${data}`
+  }
+  return null
+}
+
+function getMainImageSrc() {
+  const p = property.value
+  if (!p) return null
+  if (Array.isArray(p.images) && p.images.length > 0) {
+    return getImageSrcFromItem(p.images[selectedImageIndex.value])
+  }
+  return getImageSrcFromItem(p.image)
+}
+
+function buildImageSrcList() {
+  const p = property.value
+  if (!p) return []
+  const list = []
+  if (Array.isArray(p.images) && p.images.length > 0) {
+    for (const img of p.images) {
+      const src = getImageSrcFromItem(img)
+      if (src) list.push(src)
+    }
+  } else {
+    const s = getImageSrcFromItem(p.image)
+    if (s) list.push(s)
+  }
+  return list
+}
+
+function openLightbox(index = 0) {
+  lightboxImages.value = buildImageSrcList()
+  lightboxStartIndex.value = index
+  if (lightboxImages.value.length === 0) return
+  lightboxVisible.value = true
+}
+
+function onThumbClick(idx) {
+  selectedImageIndex.value = idx
+  openLightbox(idx)
+}
+
 function formatPrice(price) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'RUB',
     maximumFractionDigits: 0
   }).format(price)
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('ru-RU', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -45,7 +145,23 @@ function formatDate(dateString) {
 
 function getPropertyTypeName(typeId) {
   const type = propertyTypesStore.propertyTypes.find(t => t.id === typeId)
-  return type ? type.name : 'Unknown'
+  return type ? type.name : 'Неизвестно'
+}
+
+function txLabel(t) {
+  if (t === 'sale') return 'Продажа'
+  if (t === 'rent') return 'Аренда'
+  return t
+}
+
+function statusLabel(s) {
+  switch (s) {
+    case 'active': return 'Активен'
+    case 'sold': return 'Продано'
+    case 'rented': return 'Арендовано'
+    case 'inactive': return 'Неактивен'
+    default: return s
+  }
 }
 
 function getStatusClass(status) {
@@ -63,7 +179,21 @@ async function toggleFavorite() {
   favoriteLoading.value = true
   try {
     const response = await propertiesStore.toggleFavorite(property.value.id)
-    isFavorite.value = response.status === 201
+    // Prefer server-returned `is_favorited` flag if present
+    if (response && response.data && typeof response.data.is_favorited !== 'undefined') {
+      isFavorite.value = !!response.data.is_favorited
+      // also update store's currentProperty if present
+      if (propertiesStore.currentProperty) {
+        propertiesStore.currentProperty.is_favorited = !!response.data.is_favorited
+      }
+    } else if (property.value && typeof property.value.is_favorited !== 'undefined') {
+      // переключать локально, если бэкенд не вернул явное состояние
+      isFavorite.value = !property.value.is_favorited
+      propertiesStore.currentProperty.is_favorited = isFavorite.value
+    } else {
+      // запасной вариант на основе кодов статуса (создан/удален)
+      isFavorite.value = response && response.status === 201
+    }
   } catch (error) {
     console.error('Failed to toggle favorite:', error)
   } finally {
@@ -85,7 +215,7 @@ async function handleDelete() {
 
 <template>
   <div class="property-detail-page">
-    <LoadingSpinner v-if="propertiesStore.loading" message="Loading property..." />
+    <LoadingSpinner v-if="propertiesStore.loading" message="Загрузка объекта недвижимости..." />
 
     <AlertMessage
       v-if="propertiesStore.error"
@@ -96,15 +226,13 @@ async function handleDelete() {
 
     <template v-if="property && !propertiesStore.loading">
       <div class="page-header">
-        <RouterLink to="/properties" class="back-link">
-          ← Back to Properties
-        </RouterLink>
+        <BackButton to="/properties">К списку объектов</BackButton>
         <div v-if="isAdmin" class="page-actions">
           <RouterLink :to="`/properties/${property.id}/edit`" class="btn btn-outline">
-            Edit
+            Редактировать
           </RouterLink>
           <button @click="showDeleteDialog = true" class="btn btn-danger">
-            Delete
+            Удалить
           </button>
         </div>
       </div>
@@ -112,14 +240,44 @@ async function handleDelete() {
       <div class="property-layout">
         <div class="property-main">
           <div class="property-gallery">
-            <div class="gallery-main">
+            <div :class="['gallery-main', { 'has-image': getMainImageSrc() }]">
+              <img v-if="getMainImageSrc()" :src="getMainImageSrc()" :alt="property.title" class="gallery-img" @click.stop="openLightbox(selectedImageIndex)" />
               <span class="property-type-badge">
                 {{ getPropertyTypeName(property.type_id) }}
               </span>
               <span :class="['property-status-badge', getStatusClass(property.property_status)]">
-                {{ property.property_status }}
+                {{ statusLabel(property.property_status) }}
               </span>
             </div>
+
+            <div v-if="property.images && property.images.length" class="gallery-thumbs">
+              <button
+                v-for="(img, idx) in visibleImages"
+                :key="idx"
+                type="button"
+                class="thumb-button"
+                :class="{ active: selectedImageIndex === idx }"
+                @click.stop="onThumbClick(idx)"
+              >
+                <img v-if="getImageSrcFromItem(img)" :src="getImageSrcFromItem(img)" class="thumb-img" />
+                <span v-else class="thumb-placeholder">📷</span>
+              </button>
+
+              <button
+                v-if="hiddenCount > 0"
+                type="button"
+                class="thumb-button thumb-more"
+                @click.stop="openLightbox(visibleImages.length)"
+                :aria-label="`Показать ещё ${hiddenCount} изображений`"
+              >
+                <!-- show the first hidden image as background if available -->
+                <img v-if="getImageSrcFromItem(property.images[visibleImages.length])" :src="getImageSrcFromItem(property.images[visibleImages.length])" class="thumb-img" />
+                <span v-else class="thumb-placeholder">📷</span>
+                <span class="more-count">+{{ hiddenCount }}</span>
+              </button>
+            </div>
+
+            <ImageLightbox :images="lightboxImages" :startIndex="lightboxStartIndex" v-model="lightboxVisible" @close="lightboxVisible = false" />
           </div>
 
           <div class="property-info-card">
@@ -128,56 +286,56 @@ async function handleDelete() {
 
             <div class="property-price-section">
               <span class="property-price">{{ formatPrice(property.price) }}</span>
-              <span v-if="property.transaction_type === 'rent'" class="price-period">/month</span>
-              <span class="transaction-badge">{{ property.transaction_type }}</span>
+              <span v-if="property.transaction_type === 'rent'" class="price-period">/сутки</span>
+              <span class="transaction-badge">{{ txLabel(property.transaction_type) }}</span>
             </div>
 
             <div class="property-meta">
               <div class="meta-item">
-                <span class="meta-label">Area</span>
+                <span class="meta-label">Площадь</span>
                 <span class="meta-value">{{ property.area }} m²</span>
               </div>
               <div class="meta-item">
-                <span class="meta-label">Type</span>
+                <span class="meta-label">Тип</span>
                 <span class="meta-value">{{ getPropertyTypeName(property.type_id) }}</span>
               </div>
               <div class="meta-item">
-                <span class="meta-label">Status</span>
-                <span class="meta-value capitalize">{{ property.property_status }}</span>
+                <span class="meta-label">Статус</span>
+                <span class="meta-value">{{ statusLabel(property.property_status) }}</span>
               </div>
             </div>
 
             <div class="property-description">
-              <h3>Description</h3>
+              <h3>Описание</h3>
               <p>{{ property.property_description }}</p>
             </div>
 
             <div class="property-dates">
-              <p><strong>Listed:</strong> {{ formatDate(property.created_at) }}</p>
-              <p><strong>Updated:</strong> {{ formatDate(property.updated_at) }}</p>
+              <p><strong>Добавлено:</strong> {{ formatDate(property.created_at) }}</p>
+              <p><strong>Обновлено:</strong> {{ formatDate(property.updated_at) }}</p>
             </div>
           </div>
         </div>
 
         <div class="property-sidebar">
           <div class="sidebar-card">
-            <h3>Actions</h3>
+            <h3>Действия</h3>
             <button 
               @click="toggleFavorite" 
               :class="['btn btn-block', isFavorite ? 'btn-danger' : 'btn-outline']"
               :disabled="favoriteLoading"
             >
-              {{ isFavorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites' }}
+              {{ isFavorite ? '❤️ Удалить из избранного' : '🤍 Добавить в избранное' }}
             </button>
           </div>
 
           <div class="sidebar-card">
-            <h3>Location</h3>
+            <h3>Расположение</h3>
             <div class="location-info">
-              <p><strong>Address:</strong> {{ property.property_address }}</p>
-              <p><strong>City:</strong> {{ property.city }}</p>
+              <p><strong>Адрес:</strong> {{ property.property_address }}</p>
+              <p><strong>Город:</strong> {{ property.city }}</p>
               <p v-if="property.latitude && property.longitude">
-                <strong>Coordinates:</strong><br>
+                <strong>Координаты:</strong><br>
                 {{ property.latitude.toFixed(6) }}, {{ property.longitude.toFixed(6) }}
               </p>
             </div>
@@ -188,9 +346,9 @@ async function handleDelete() {
 
     <ConfirmDialog
       :show="showDeleteDialog"
-      title="Delete Property"
-      message="Are you sure you want to delete this property? This action cannot be undone."
-      confirm-text="Delete"
+      title="Удалить объект"
+      message="Вы уверены, что хотите удалить этот объект? Это действие необратимо."
+      confirm-text="Удалить"
       @confirm="handleDelete"
       @cancel="showDeleteDialog = false"
     />
@@ -212,13 +370,27 @@ async function handleDelete() {
 }
 
 .back-link {
-  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: #ffffff;
+  border: 1px solid #e6eefc;
+  color: #1e40af;
+  font-weight: 600;
+  border-radius: 8px;
   text-decoration: none;
-  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(16,24,40,0.08);
+}
+
+.back-link .arrow {
+  font-size: 1.05rem;
 }
 
 .page-actions {
@@ -250,6 +422,78 @@ async function handleDelete() {
   content: '🏠';
   font-size: 8rem;
   opacity: 0.5;
+}
+
+.gallery-main.has-image::after {
+  display: none;
+}
+
+.gallery-main .gallery-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.gallery-main .property-type-badge,
+.gallery-main .property-status-badge {
+  z-index: 2;
+}
+
+.gallery-thumbs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.thumb-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  width: 72px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+}
+
+.thumb-button.active {
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+}
+
+.thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-placeholder {
+  font-size: 1.25rem;
+  opacity: 0.6;
+}
+
+.thumb-more {
+  position: relative;
+  background: #e5e7eb;
+}
+
+.thumb-more .more-count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  background: rgba(0,0,0,0.45);
+  border-radius: 6px;
 }
 
 .property-type-badge {

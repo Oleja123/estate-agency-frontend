@@ -81,6 +81,10 @@ export const authApi = {
 
   refreshToken: (refreshToken) =>
     wrapCall(() => api.post('/tokens/refresh', { refresh_token: refreshToken }), 'POST', '/tokens/refresh', { refresh_token: refreshToken })
+  ,
+
+  logout: (refreshToken) =>
+    wrapCall(() => api.post('/tokens/logout', { refresh_token: refreshToken }), 'POST', '/tokens/logout', { refresh_token: refreshToken })
 }
 
 export const usersApi = {
@@ -116,8 +120,8 @@ export const usersApi = {
   delete: (id) =>
     wrapCall(() => api.delete(`/users/${id}`), 'DELETE', `/users/${id}`, null),
 
-  getFavorites: (id) =>
-    wrapCall(() => api.get(`/users/${id}/favorites`), 'GET', `/users/${id}/favorites`, null)
+  getFavorites: (id, params = {}) =>
+    wrapCall(() => api.get(`/users/${id}/favorites`, { params }), 'GET', `/users/${id}/favorites`, { params }),
 }
 
 export const propertiesApi = {
@@ -139,8 +143,6 @@ export const propertiesApi = {
   toggleFavorite: (id) =>
     wrapCall(() => api.post(`/properties/${id}/favorites`), 'POST', `/properties/${id}/favorites`, null),
 
-  getImages: (id) =>
-    wrapCall(() => api.get(`/properties/${id}/images`), 'GET', `/properties/${id}/images`, null),
 
   uploadImages: (id, files) => {
     const formData = new FormData()

@@ -5,9 +5,9 @@ import { useUsersStore } from '../../stores/users'
 import { useAuthStore } from '../../stores/auth'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
 import paginationConfig from '../../config/pagination'
+import PaginationControl from '../../components/common/PaginationControl.vue'
+import ImageLightbox from '../../components/common/ImageLightbox.vue'
 
 const usersStore = useUsersStore()
 const authStore = useAuthStore()
@@ -19,6 +19,9 @@ const favoriteProperties = ref([])
 const loading = ref(true)
 const error = ref(null)
 
+const limit = ref(paginationConfig.favorites)
+const offset = ref(0)
+
 const currentUserId = computed(() => authStore.currentUserId)
 
 onMounted(async () => {
@@ -26,7 +29,7 @@ onMounted(async () => {
     await propertyTypesStore.fetchPropertyTypes({ limit: paginationConfig.lookup })
     await loadFavorites()
   } catch (err) {
-    error.value = 'Failed to load favorites'
+    error.value = 'Не удалось загрузить избранное'
   } finally {
     loading.value = false
   }
@@ -34,18 +37,29 @@ onMounted(async () => {
 
 async function loadFavorites() {
   if (!currentUserId.value) return
-  
-  const favorites = await usersStore.fetchFavorites(currentUserId.value)
-  favoriteIds.value = favorites.map(f => f.property_id)
-  
-  if (favoriteIds.value.length > 0) {
-    const response = await propertiesStore.fetchProperties({
-      ids: favoriteIds.value.join(','),
-      limit: 100
-    })
-    favoriteProperties.value = response.properties || []
+
+  try {
+    const res = await usersStore.fetchFavorites(currentUserId.value, { limit: limit.value, offset: offset.value })
+    if (res && Array.isArray(res.items)) {
+      favoriteProperties.value = res.items
+    } else if (Array.isArray(usersStore.favorites)) {
+  // запасной вариант: использовать заполненный стор избранного
+      favoriteProperties.value = usersStore.favorites
+    } else {
+      favoriteProperties.value = []
+    }
+  } catch (err) {
+    error.value = 'Не удалось загрузить избранное'
   }
 }
+
+function handlePageChange(page) {
+  offset.value = (page - 1) * limit.value
+  loadFavorites()
+}
+
+const currentPage = () => Math.floor(offset.value / limit.value) + 1
+const totalPages = () => Math.ceil((usersStore.favoritesTotal || 0) / limit.value)
 
 async function removeFavorite(propertyId) {
   try {
@@ -53,21 +67,21 @@ async function removeFavorite(propertyId) {
     favoriteProperties.value = favoriteProperties.value.filter(p => p.id !== propertyId)
     favoriteIds.value = favoriteIds.value.filter(id => id !== propertyId)
   } catch (err) {
-    error.value = 'Failed to remove from favorites'
+    error.value = 'Не удалось удалить из избранного'
   }
 }
 
 function formatPrice(price) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'RUB',
     maximumFractionDigits: 0
   }).format(price)
 }
 
 function getPropertyTypeName(typeId) {
   const type = propertyTypesStore.propertyTypes.find(t => t.id === typeId)
-  return type ? type.name : 'Unknown'
+  return type ? type.name : 'Неизвестно'
 }
 
 function getStatusClass(status) {
@@ -79,13 +93,77 @@ function getStatusClass(status) {
     default: return ''
   }
 }
+
+function getImageSrc(property) {
+  // Prefer property.image (single) like list view
+  const img = property?.image || null
+  if (!img) return null
+  if (img.url) return img.url
+  const data = img.data
+  const filename = img.filename || ''
+  if (data) {
+    const ext = filename.split('.').pop()?.toLowerCase() || ''
+    let mime = 'image/jpeg'
+    if (ext === 'png') mime = 'image/png'
+    else if (ext === 'webp') mime = 'image/webp'
+    else if (ext === 'gif') mime = 'image/gif'
+    else if (ext === 'svg') mime = 'image/svg+xml'
+    return `data:${mime};base64,${data}`
+  }
+  return null
+}
+
+const lightboxVisible = ref(false)
+const lightboxImages = ref([])
+const lightboxStartIndex = ref(0)
+
+function buildListImageSrcList(property) {
+  const list = []
+  if (Array.isArray(property?.images) && property.images.length > 0) {
+    for (const img of property.images) {
+      if (!img) continue
+      if (img.url) list.push(img.url)
+      else if (img.data) {
+        const filename = img.filename || ''
+        const ext = filename.split('.').pop()?.toLowerCase() || ''
+        let mime = 'image/jpeg'
+        if (ext === 'png') mime = 'image/png'
+        else if (ext === 'webp') mime = 'image/webp'
+        else if (ext === 'gif') mime = 'image/gif'
+        else if (ext === 'svg') mime = 'image/svg+xml'
+        list.push(`data:${mime};base64,${img.data}`)
+      }
+    }
+  } else if (property?.image) {
+    const img = property.image
+    if (img.url) list.push(img.url)
+    else if (img.data) {
+      const filename = img.filename || ''
+      const ext = filename.split('.').pop()?.toLowerCase() || ''
+      let mime = 'image/jpeg'
+      if (ext === 'png') mime = 'image/png'
+      else if (ext === 'webp') mime = 'image/webp'
+      else if (ext === 'gif') mime = 'image/gif'
+      else if (ext === 'svg') mime = 'image/svg+xml'
+      list.push(`data:${mime};base64,${img.data}`)
+    }
+  }
+  return list
+}
+
+function openPropertyLightbox(property, start = 0) {
+  lightboxImages.value = buildListImageSrcList(property)
+  lightboxStartIndex.value = start
+  if (lightboxImages.value.length === 0) return
+  lightboxVisible.value = true
+}
 </script>
 
 <template>
   <div class="favorites-page">
     <div class="page-header">
-      <h1 class="page-title">My Favorites</h1>
-      <p class="page-subtitle">Properties you've saved for later</p>
+      <h1 class="page-title">Избранное</h1>
+      <p class="page-subtitle">Объекты, сохранённые вами</p>
     </div>
 
     <AlertMessage
@@ -95,15 +173,15 @@ function getStatusClass(status) {
       @dismiss="error = null"
     />
 
-    <LoadingSpinner v-if="loading" message="Loading favorites..." />
+  <LoadingSpinner v-if="loading" message="Загрузка избранного..." />
 
     <template v-else>
       <div v-if="favoriteProperties.length === 0" class="empty-state">
         <div class="empty-icon">❤️</div>
-        <h3>No Favorites Yet</h3>
-        <p>Start browsing properties and add them to your favorites!</p>
+        <h3>Пока нет избранного</h3>
+        <p>Начните просматривать объекты и добавьте их в избранное!</p>
         <RouterLink to="/properties" class="btn btn-primary">
-          Browse Properties
+          Просмотреть объекты
         </RouterLink>
       </div>
 
@@ -114,7 +192,8 @@ function getStatusClass(status) {
           class="favorite-card"
         >
           <RouterLink :to="`/properties/${property.id}`" class="property-link">
-            <div class="property-image">
+            <div :class="['property-image', { 'has-image': getImageSrc(property) }]">
+              <img v-if="getImageSrc(property)" :src="getImageSrc(property)" :alt="property.title" class="property-img" @click.stop.prevent="openPropertyLightbox(property, 0)" />
               <span class="property-type-badge">
                 {{ getPropertyTypeName(property.type_id) }}
               </span>
@@ -131,15 +210,21 @@ function getStatusClass(status) {
               </div>
               <div class="property-price">
                 {{ formatPrice(property.price) }}
-                <span v-if="property.transaction_type === 'rent'" class="price-period">/month</span>
+                <span v-if="property.transaction_type === 'rent'" class="price-period">/сутки</span>
               </div>
             </div>
           </RouterLink>
           <button @click="removeFavorite(property.id)" class="remove-favorite-btn">
-            ❤️ Remove
+            Удалить из избранного
           </button>
         </div>
       </div>
+      <ImageLightbox :images="lightboxImages" :startIndex="lightboxStartIndex" v-model="lightboxVisible" @close="lightboxVisible = false" />
+      <PaginationControl
+        :current-page="currentPage()"
+        :total-pages="totalPages()"
+        @page-change="handlePageChange"
+      />
     </template>
   </div>
 </template>
@@ -227,6 +312,25 @@ function getStatusClass(status) {
   content: '🏠';
   font-size: 4rem;
   opacity: 0.5;
+}
+
+.property-image.has-image::after {
+  content: '';
+  opacity: 0;
+}
+
+.property-image .property-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.property-image .property-type-badge,
+.property-image .property-status-badge {
+  z-index: 2;
 }
 
 .property-type-badge {
