@@ -3,9 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useUsersStore } from '../../stores/users'
 import { useAuthStore } from '../../stores/auth'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
-import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
+// common components are registered globally in main.js
 
 const route = useRoute()
 const router = useRouter()
@@ -73,12 +71,8 @@ async function toggleActive() {
 
     <template v-if="user && !usersStore.loading">
       <div class="page-header">
-        <RouterLink v-if="isAdmin" to="/users" class="back-link">
-          ← К списку пользователей
-        </RouterLink>
-        <RouterLink v-else to="/" class="back-link">
-          ← На главную
-        </RouterLink>
+        <BackButton v-if="isAdmin" to="/users">К списку пользователей</BackButton>
+        <BackButton v-else to="/">На главную</BackButton>
         <div v-if="isAdmin && !isOwnProfile" class="page-actions">
           <button @click="toggleActive" class="btn btn-outline">
             {{ user.is_active ? 'Деактивировать' : 'Активировать' }}

@@ -5,10 +5,8 @@ import { useUsersStore } from '../../stores/users'
 import { useAuthStore } from '../../stores/auth'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
-import PaginationControl from '../../components/common/PaginationControl.vue'
 import paginationConfig from '../../config/pagination'
+import PaginationControl from '../../components/common/PaginationControl.vue'
 import ImageLightbox from '../../components/common/ImageLightbox.vue'
 
 const usersStore = useUsersStore()

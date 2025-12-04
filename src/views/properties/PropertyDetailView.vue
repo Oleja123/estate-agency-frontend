@@ -5,10 +5,7 @@ import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
 import { useAuthStore } from '../../stores/auth'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
-import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
-import ImageLightbox from '../../components/common/ImageLightbox.vue'
+// common components are registered globally in main.js
 import paginationConfig from '../../config/pagination'
 
 const route = useRoute()
@@ -229,9 +226,7 @@ async function handleDelete() {
 
     <template v-if="property && !propertiesStore.loading">
       <div class="page-header">
-        <RouterLink to="/properties" class="back-link">
-          ← К списку объектов
-        </RouterLink>
+        <BackButton to="/properties">К списку объектов</BackButton>
         <div v-if="isAdmin" class="page-actions">
           <RouterLink :to="`/properties/${property.id}/edit`" class="btn btn-outline">
             Редактировать
@@ -375,13 +370,27 @@ async function handleDelete() {
 }
 
 .back-link {
-  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: #ffffff;
+  border: 1px solid #e6eefc;
+  color: #1e40af;
+  font-weight: 600;
+  border-radius: 8px;
   text-decoration: none;
-  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(16,24,40,0.08);
+}
+
+.back-link .arrow {
+  font-size: 1.05rem;
 }
 
 .page-actions {

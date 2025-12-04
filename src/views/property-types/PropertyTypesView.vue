@@ -2,10 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
 import PaginationControl from '../../components/common/PaginationControl.vue'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
 import ModalDialog from '../../components/common/ModalDialog.vue'
-import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
 import paginationConfig from '../../config/pagination'
 
 const propertyTypesStore = usePropertyTypesStore()

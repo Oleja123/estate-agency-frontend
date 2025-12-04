@@ -3,8 +3,7 @@ import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePropertiesStore } from '../../stores/properties'
 import { usePropertyTypesStore } from '../../stores/propertyTypes'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
+// common components are registered globally in main.js
 import paginationConfig from '../../config/pagination'
 
 const route = useRoute()
@@ -332,9 +331,7 @@ function goBack() {
 <template>
   <div class="property-form-page">
     <div class="page-header">
-      <button @click="goBack" class="back-link">
-        ← Назад
-      </button>
+      <BackButton>{{ 'Назад' }}</BackButton>
       <h1 class="page-title">{{ pageTitle }}</h1>
     </div>
 
@@ -582,18 +579,29 @@ function goBack() {
 }
 
 .back-link {
-  background: none;
-  border: none;
-  color: #2563eb;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: #ffffff;
+  border: 1px solid #e6eefc;
+  color: #1e40af;
+  font-weight: 600;
+  border-radius: 8px;
   cursor: pointer;
-  padding: 0;
   margin-bottom: 1rem;
-  display: inline-block;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(16,24,40,0.08);
+}
+
+.back-link .arrow {
+  font-size: 1.05rem;
 }
 
 .page-title {

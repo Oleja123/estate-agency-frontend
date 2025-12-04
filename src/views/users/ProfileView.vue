@@ -3,8 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useUsersStore } from '../../stores/users'
-import LoadingSpinner from '../../components/common/LoadingSpinner.vue'
-import AlertMessage from '../../components/common/AlertMessage.vue'
+// common components are registered globally in main.js
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -168,9 +167,7 @@ function roleLabel(role) {
 <template>
   <div class="profile-page">
     <div class="page-header">
-      <button @click="goBack" class="back-link">
-        ← Назад
-      </button>
+      <BackButton>{{ 'Назад' }}</BackButton>
       <h1 class="page-title">Мой профиль</h1>
     </div>
 
