@@ -30,7 +30,7 @@ export function formatApiErrorResponse(resp, opts = { context: 'request' }) {
   function translateFieldName(key) {
     if (!key || typeof key !== 'string') return key
     if (fieldTranslations[key]) return fieldTranslations[key]
-    // fallback: convert snake_case/camelCase to human readable (replace _ with space, capitalize)
+  // запасной вариант: преобразовать snake_case/camelCase в читаемый вид (заменить _ на пробел, капитализировать)
     const human = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
     return human.charAt(0).toUpperCase() + human.slice(1)
   }

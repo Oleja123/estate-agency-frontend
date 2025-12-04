@@ -124,10 +124,10 @@ function openPasswordDialog(user) {
 async function handleChangePasswordAdmin() {
   passwordErrors.value = {}
   if (!newPassword.value) {
-    passwordErrors.value.newPassword = 'New password is required'
+    passwordErrors.value.newPassword = 'Требуется новый пароль'
   }
   if (newPassword.value !== confirmNewPassword.value) {
-    passwordErrors.value.confirmNewPassword = 'Passwords do not match'
+    passwordErrors.value.confirmNewPassword = 'Пароли не совпадают'
   }
   if (Object.keys(passwordErrors.value).length) return
 
@@ -137,7 +137,7 @@ async function handleChangePasswordAdmin() {
     selectedUser.value = null
   } catch (err) {
     console.error('Failed to change user password:', err)
-    // if store has fieldErrors, surface them
+  // если в сторе есть fieldErrors — отобразить их
     if (usersStore.fieldErrors) {
       passwordErrors.value = { ...passwordErrors.value, ...usersStore.fieldErrors }
     }

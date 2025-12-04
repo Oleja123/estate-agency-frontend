@@ -67,7 +67,7 @@ function openDeleteDialog(type) {
 
 async function handleCreate() {
   if (!newTypeName.value.trim()) {
-    formError.value = 'Name is required'
+    formError.value = 'Требуется название'
     return
   }
   
@@ -78,13 +78,13 @@ async function handleCreate() {
     // reload current page
     await loadTypes()
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Failed to create property type'
+  formError.value = error.response?.data?.message || 'Не удалось создать тип недвижимости'
   }
 }
 
 async function handleUpdate() {
   if (!editTypeName.value.trim()) {
-    formError.value = 'Name is required'
+    formError.value = 'Требуется название'
     return
   }
   
@@ -97,7 +97,7 @@ async function handleUpdate() {
     // reload current page
     await loadTypes()
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Failed to update property type'
+    formError.value = error.response?.data?.message || 'Не удалось обновить тип недвижимости'
   }
 }
 
@@ -183,7 +183,7 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
 
     <ModalDialog
       :show="showCreateModal"
-      title="Add Property Type"
+      title="Добавить тип недвижимости"
       size="small"
       @close="showCreateModal = false"
     >
@@ -252,9 +252,9 @@ const totalPages = () => Math.ceil(Number(propertyTypesStore.total || 0) / Numbe
 
     <ConfirmDialog
       :show="showDeleteDialog"
-      title="Delete Property Type"
-      :message="`Are you sure you want to delete '${selectedType?.name}'? This may affect properties using this type.`"
-      confirm-text="Delete"
+      title="Удалить тип недвижимости"
+      :message="`Вы уверены, что хотите удалить '${selectedType?.name}'? Это может повлиять на объекты недвижимости, использующие этот тип.`"
+      confirm-text="Удалить"
       @confirm="handleDelete"
       @cancel="showDeleteDialog = false"
     />

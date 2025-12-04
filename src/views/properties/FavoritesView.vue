@@ -45,7 +45,7 @@ async function loadFavorites() {
     if (res && Array.isArray(res.items)) {
       favoriteProperties.value = res.items
     } else if (Array.isArray(usersStore.favorites)) {
-      // fallback: store populated favorites
+  // запасной вариант: использовать заполненный стор избранного
       favoriteProperties.value = usersStore.favorites
     } else {
       favoriteProperties.value = []

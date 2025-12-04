@@ -42,17 +42,17 @@ function closeMenu() {
         Estate Agency
       </RouterLink>
 
-      <button class="navbar-burger" @click="toggleMenu" aria-label="Toggle menu" :aria-expanded="showMenu">
+  <button class="navbar-burger" @click="toggleMenu" aria-label="Toggle menu" :aria-expanded="showMenu">
         <span class="burger-line"></span>
         <span class="burger-line"></span>
         <span class="burger-line"></span>
       </button>
 
       <nav :class="['navbar-nav', { 'mobile-open': showMenu }]" v-if="isAuthenticated">
-        <RouterLink to="/properties" class="nav-link" @click="closeMenu">Properties</RouterLink>
-        <RouterLink to="/favorites" class="nav-link" @click="closeMenu">Favorites</RouterLink>
-        <RouterLink v-if="isAdmin" to="/users" class="nav-link" @click="closeMenu">Users</RouterLink>
-        <RouterLink v-if="isAdmin" to="/property-types" class="nav-link" @click="closeMenu">Property Types</RouterLink>
+  <RouterLink to="/properties" class="nav-link" @click="closeMenu">Объекты</RouterLink>
+  <RouterLink to="/favorites" class="nav-link" @click="closeMenu">Избранное</RouterLink>
+  <RouterLink v-if="isAdmin" to="/users" class="nav-link" @click="closeMenu">Пользователи</RouterLink>
+  <RouterLink v-if="isAdmin" to="/property-types" class="nav-link" @click="closeMenu">Типы недвижимости</RouterLink>
       </nav>
 
       <div class="navbar-actions">
@@ -60,15 +60,15 @@ function closeMenu() {
           <RouterLink to="/profile" class="user-info">
             <span class="user-avatar">👤</span>
             <span class="user-name">{{ userName }}</span>
-            <span v-if="isAdmin" class="admin-badge">Admin</span>
+            <span v-if="isAdmin" class="admin-badge">Админ</span>
           </RouterLink>
           <button @click="handleLogout" class="btn btn-outline" :disabled="authStore.loading">
-            {{ authStore.loading ? 'Logging out...' : 'Logout' }}
+            {{ authStore.loading ? 'Выход...' : 'Выйти' }}
           </button>
         </template>
         <template v-else>
-          <RouterLink to="/login" class="btn btn-outline">Login</RouterLink>
-          <RouterLink to="/register" class="btn btn-primary">Register</RouterLink>
+          <RouterLink to="/login" class="btn btn-outline">Войти</RouterLink>
+          <RouterLink to="/register" class="btn btn-primary">Регистрация</RouterLink>
         </template>
       </div>
     </div>
@@ -196,7 +196,7 @@ function closeMenu() {
   background: #1d4ed8;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1100px) {
   .navbar-burger {
     display: block;
     background: transparent;

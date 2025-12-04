@@ -4,100 +4,105 @@
 
 Фронтенд-приложение для системы управления объектами недвижимости, построено с использованием Vue.js 3.
 
-## Features
+## Возможности
 
-- 🔐 **Authentication**: User registration, login with JWT tokens
-- 🏠 **Property Management**: Browse, search, filter, create, and manage properties
-- ❤️ **Favorites**: Save properties to favorites for easy access
-- 👥 **User Management**: Admin panel for managing users and roles
-- 🏷️ **Property Types**: Manage property categories
-- 📱 **Responsive Design**: Works on desktop and mobile devices
+- 🔐 **Аутентификация**: регистрация пользователей, вход с JWT-токенами
+- 🏠 **Управление объектами**: просмотр, поиск, фильтрация, создание и редактирование объектов
+- ❤️ **Избранное**: сохраняйте объекты в избранное для быстрого доступа
+- 👥 **Управление пользователями**: админ-панель для управления пользователями и ролями
+- 🏷️ **Типы недвижимости**: управление категориями объектов
+- 📱 **Адаптивный дизайн**: корректная работа на десктопе и мобильных устройствах
 
-## Tech Stack
+## Технологии
 
-- **Vue.js 3** - Progressive JavaScript Framework
-- **Vite** - Next Generation Frontend Tooling
-- **Vue Router** - Official router for Vue.js
-- **Pinia** - State management for Vue.js
-- **Axios** - HTTP client for API communication
+- **Vue.js 3** — JavaScript-фреймворк
+- **Vite** — сборка и инструменты для фронтенда
+- **Vue Router** — маршрутизация для Vue.js
+- **Pinia** — управление состоянием
+- **Axios** — HTTP-клиент для общения с API
 
-## Prerequisites
+## Требования
 
-- Node.js 18+ 
-- npm or yarn
-- Backend API running (see [estate-agency](https://github.com/Oleja123/estate-agency))
+- Node.js 18+
+- npm или yarn
+- Запущенный бэкенд (см. репозиторий [estate-agency](https://github.com/Oleja123/estate-agency))
 
-## Getting Started
+## Быстрый старт
 
-1. Clone the repository:
+1. Клонируйте репозиторий:
+
 ```bash
 git clone https://github.com/Oleja123/estate-agency-frontend.git
 cd estate-agency-frontend
 ```
 
-2. Install dependencies:
+1. Установите зависимости:
+
 ```bash
 npm install
 ```
 
-3. Configure environment variables:
+1. Скопируйте пример переменных окружения и настройте их:
+
 ```bash
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and set your API URL:
-```
+Откройте `.env.local` и укажите URL API, например:
+
+```text
 VITE_API_URL=http://localhost:8080
 ```
 
-4. Start development server:
+1. Запустите dev-сервер:
+
 ```bash
 npm run dev
 ```
 
-5. Open http://localhost:5173 in your browser
+1. Откройте [http://localhost:5173](http://localhost:5173) в браузере
 
-## Available Scripts
+## Доступные скрипты
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
+- `npm run dev` — запустить dev-сервер
+- `npm run build` — собрать проект для продакшена
+- `npm run preview` — предпросмотр production-сборки
 
-## Project Structure
+## Структура проекта
 
 ```
 src/
-├── api/              # API service layer
-├── components/       # Reusable Vue components
-│   ├── common/       # Common UI components
-│   └── layout/       # Layout components
-├── router/           # Vue Router configuration
-├── stores/           # Pinia stores
-├── views/            # Page components
-│   ├── auth/         # Authentication pages
-│   ├── properties/   # Property pages
-│   ├── property-types/# Property type management
-│   └── users/        # User management
-├── App.vue           # Root component
-├── main.js           # Application entry point
-└── style.css         # Global styles
+├── api/              # Слой взаимодействия с API
+├── components/       # Переиспользуемые Vue-компоненты
+│   ├── common/       # Общие UI-компоненты
+│   └── layout/       # Компоненты макета
+├── router/           # Конфигурация Vue Router
+├── stores/           # Pinia-хранилища
+├── views/            # Страницы
+│   ├── auth/         # Страницы аутентификации
+│   ├── properties/   # Страницы объектов недвижимости
+│   ├── property-types/   # Управление типами недвижимости
+│   └── users/           # Управление пользователями
+├── App.vue           # Корневой компонент
+├── main.js           # Точка входа приложения
+└── style.css         # Глобальные стили
 ```
 
-## API Endpoints
+## API эндпоинты
 
-The frontend communicates with the following API endpoints:
+Фронтенд взаимодействует со следующими API-ручками:
 
-- `/users/login` - User authentication
-- `/users/register` - User registration
-- `/tokens/refresh` - Token refresh
-- `/properties` - Property CRUD operations
-- `/property_types` - Property type management
-- `/users` - User management
+- `/users/login` — аутентификация пользователя
+- `/users/register` — регистрация
+- `/tokens/refresh` — обновление токена
+- `/properties` — операции CRUD для объектов
+- `/property_types` — управление типами недвижимости
+- `/users` — управление пользователями
 
-## Author
+## Автор
 
-Салин Олег Алексеевич - ПИбд-43 - ФИСТ
+Салин Олег Алексеевич — ПИбд-43 — ФИСТ
 
-## License
+## Лицензия
 
-This project is private.
+Проект приватный.

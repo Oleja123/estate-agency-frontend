@@ -52,7 +52,7 @@ function base64ToFile(base64Data, filename) {
     }
     return new File([arr], filename || `image.${ext}`, { type: mime })
   } catch (e) {
-    // fallback: return a Blob wrapped as File without type
+    // запасной вариант: вернуть Blob, упакованный как File без типа
     const blob = new Blob([], { type: mime })
     return new File([blob], filename || `image.${ext}`)
   }
@@ -60,7 +60,7 @@ function base64ToFile(base64Data, filename) {
 
 function getPreviewUrl(file) {
   if (!file) return ''
-  // if this is a new File wrapper
+  // если это обёртка для нового File
   if (file.isNew && file.file) {
     if (!file.__preview) {
       try { file.__preview = URL.createObjectURL(file.file) } catch (e) { file.__preview = '' }
@@ -71,7 +71,7 @@ function getPreviewUrl(file) {
   if (!file.isNew && file.data) {
     return `data:image/*;base64,${file.data}`
   }
-  // fallback for raw File objects
+  // запасной вариант для сырых объектов File
   if (file instanceof File) {
     if (!file.__preview) {
       try { file.__preview = URL.createObjectURL(file) } catch (e) { file.__preview = '' }
@@ -126,7 +126,7 @@ onMounted(async () => {
 })
 
 function clearImages() {
-  // confirm destructive action
+  // подтверждение критического действия
   const ok = typeof window !== 'undefined' ? window.confirm('Очистить все изображения для этого объекта? Изображения будут удалены на сервере при сохранении.') : true
   if (!ok) return
   // clear local list immediately; on save we'll sync to server
@@ -206,13 +206,13 @@ async function handleSubmit() {
       return null
     }).filter(Boolean)
 
-    // If editing, always attempt to sync images (even empty list) so server can clear them.
-    // If creating, only upload when there are files.
+  // При редактировании всегда пытаться синхронизировать изображения (даже пустой список), чтобы сервер мог их очистить.
+  // При создании — загружать только если есть файлы.
     if (savedId && (isEditMode.value || filesToUpload.length > 0)) {
       try {
         await propertiesStore.uploadImages(savedId, filesToUpload)
       } catch (err) {
-        // If uploadImages fails (e.g. backend rejects empty multipart), surface error but continue navigation
+  // Если uploadImages не удался (например, бэкенд отклоняет пустой multipart), показать ошибку, но продолжить навигацию
         console.error('Failed to upload/replace images:', err)
       }
     }
@@ -221,7 +221,7 @@ async function handleSubmit() {
     if (savedId) {
       router.push(isEditMode.value ? `/properties/${savedId}` : '/properties')
     } else {
-      // Fallback navigation
+  // Навигация по умолчанию (запасной вариант)
       router.push(isEditMode.value ? `/properties/${route.params.id}` : '/properties')
     }
     
@@ -257,7 +257,7 @@ function handleFileChange(event) {
     goodFiles.push(f)
   }
 
-  // Warn if user tried to add more files than available slots
+  // Предупредить, если пользователь попытался добавить больше файлов, чем доступно слотов
   if (files.length > slots && slots <= 0) {
     errors.value.images = `Достигнут лимит: допускается максимум ${maxFiles} файлов.`
   } else if (files.length > slots) {
@@ -268,10 +268,10 @@ function handleFileChange(event) {
     delete errors.value.images
   }
 
-  // append to existing array as new wrappers
+  // добавить к существующему массиву как новые обёртки
   const wrapped = goodFiles.map(f => ({ isNew: true, file: f }))
   imageFiles.value = [...imageFiles.value, ...wrapped]
-  // clear native file input so the same file(s) can be selected again
+  // очистить нативный input файлов, чтобы можно было снова выбрать те же файлы
   if (fileInput.value) fileInput.value.value = ''
 }
 
@@ -480,7 +480,7 @@ function goBack() {
             type="text"
             class="form-input"
             :class="{ 'input-error': errors.property_address || propertiesStore.fieldErrors?.property_address }"
-            placeholder="123 Main Street"
+            placeholder="ул. Ленина, 123"
           />
           <span v-if="errors.property_address" class="error-text">{{ errors.property_address }}</span>
           <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.property_address" class="error-text">{{ propertiesStore.fieldErrors.property_address }}</span>
@@ -489,14 +489,14 @@ function goBack() {
 
         <div class="form-group">
           <label for="city" class="form-label">Город *</label>
-          <input
-            id="city"
-            v-model="form.city"
-            type="text"
-            class="form-input"
-            :class="{ 'input-error': errors.city || propertiesStore.fieldErrors?.city }"
-            placeholder="New York"
-          />
+              <input
+                id="city"
+                v-model="form.city"
+                type="text"
+                class="form-input"
+                :class="{ 'input-error': errors.city || propertiesStore.fieldErrors?.city }"
+                placeholder="Москва"
+              />
           <span v-if="errors.city" class="error-text">{{ errors.city }}</span>
           <span v-else-if="propertiesStore.fieldErrors && propertiesStore.fieldErrors.city" class="error-text">{{ propertiesStore.fieldErrors.city }}</span>
         </div>
@@ -534,7 +534,7 @@ function goBack() {
             @drop="onDrop($event, index)"
           >
             <div class="image-preview-left">
-              <img v-if="getPreviewUrl(file)" :src="getPreviewUrl(file)" class="image-thumb" alt="preview" />
+              <img v-if="getPreviewUrl(file)" :src="getPreviewUrl(file)" class="image-thumb" alt="предпросмотр" />
               <span class="image-name">{{ file.isNew ? (file.file && file.file.name) : file.filename }}</span>
             </div>
             <div class="image-preview-actions">

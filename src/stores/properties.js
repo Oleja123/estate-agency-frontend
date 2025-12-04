@@ -113,7 +113,7 @@ export const usePropertiesStore = defineStore('properties', () => {
     try {
       fieldErrors.value = {}
       const response = await propertiesApi.update(id, data)
-      // Success (200) — update currentProperty if backend returned it
+  // Успех (200) — обновить currentProperty, если бэкенд вернул объект
       if (response && response.status === 200) {
         if (response.data) {
           currentProperty.value = response.data

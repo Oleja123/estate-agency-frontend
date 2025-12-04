@@ -151,6 +151,22 @@ function getPropertyTypeName(typeId) {
   return type ? type.name : 'Неизвестно'
 }
 
+function txLabel(t) {
+  if (t === 'sale') return 'Продажа'
+  if (t === 'rent') return 'Аренда'
+  return t
+}
+
+function statusLabel(s) {
+  switch (s) {
+    case 'active': return 'Активен'
+    case 'sold': return 'Продано'
+    case 'rented': return 'Арендовано'
+    case 'inactive': return 'Неактивен'
+    default: return s
+  }
+}
+
 function getStatusClass(status) {
   switch (status) {
     case 'active': return 'status-available'
@@ -174,11 +190,11 @@ async function toggleFavorite() {
         propertiesStore.currentProperty.is_favorited = !!response.data.is_favorited
       }
     } else if (property.value && typeof property.value.is_favorited !== 'undefined') {
-      // toggle locally if backend didn't return explicit state
+      // переключать локально, если бэкенд не вернул явное состояние
       isFavorite.value = !property.value.is_favorited
       propertiesStore.currentProperty.is_favorited = isFavorite.value
     } else {
-      // fallback based on status codes (created/removed)
+      // запасной вариант на основе кодов статуса (создан/удален)
       isFavorite.value = response && response.status === 201
     }
   } catch (error) {
@@ -235,7 +251,7 @@ async function handleDelete() {
                 {{ getPropertyTypeName(property.type_id) }}
               </span>
               <span :class="['property-status-badge', getStatusClass(property.property_status)]">
-                {{ property.property_status }}
+                {{ statusLabel(property.property_status) }}
               </span>
             </div>
 
@@ -276,7 +292,7 @@ async function handleDelete() {
             <div class="property-price-section">
               <span class="property-price">{{ formatPrice(property.price) }}</span>
               <span v-if="property.transaction_type === 'rent'" class="price-period">/мес</span>
-              <span class="transaction-badge">{{ property.transaction_type }}</span>
+              <span class="transaction-badge">{{ txLabel(property.transaction_type) }}</span>
             </div>
 
             <div class="property-meta">
@@ -290,7 +306,7 @@ async function handleDelete() {
               </div>
               <div class="meta-item">
                 <span class="meta-label">Статус</span>
-                <span class="meta-value capitalize">{{ property.property_status }}</span>
+                <span class="meta-value">{{ statusLabel(property.property_status) }}</span>
               </div>
             </div>
 

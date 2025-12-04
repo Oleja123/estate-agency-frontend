@@ -19,7 +19,7 @@ const form = ref({
 const errors = ref({})
 const showError = ref(false)
 const showSuccess = ref(false)
-// if backend returns field errors, authStore.fieldErrors will be used
+// если бэкенд вернёт fieldErrors, они будут использованы (authStore.fieldErrors)
 
 function validateForm() {
   errors.value = {}

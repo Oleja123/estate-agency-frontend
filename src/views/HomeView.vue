@@ -12,28 +12,27 @@ const isAuthenticated = computed(() => authStore.isAuthenticated)
     <section class="hero">
       <div class="hero-content">
         <h1 class="hero-title">
-          Find Your Dream
-          <span class="highlight">Property</span>
+          Найдите недвижимость
+          <span class="highlight">мечты</span>
         </h1>
         <p class="hero-subtitle">
-          Discover the perfect place to call home. Browse through our extensive 
-          collection of properties for sale and rent.
+          Откройте для себя идеальное место — просматривайте объекты для продажи и аренды.
         </p>
         <div class="hero-actions">
           <template v-if="isAuthenticated">
             <RouterLink to="/properties" class="btn btn-primary btn-lg">
-              Browse Properties
+              Просмотреть объекты
             </RouterLink>
             <RouterLink to="/favorites" class="btn btn-outline btn-lg">
-              My Favorites
+              Мои избранные
             </RouterLink>
           </template>
           <template v-else>
             <RouterLink to="/register" class="btn btn-primary btn-lg">
-              Get Started
+              Начать
             </RouterLink>
             <RouterLink to="/login" class="btn btn-outline btn-lg">
-              Sign In
+              Войти
             </RouterLink>
           </template>
         </div>
@@ -41,50 +40,46 @@ const isAuthenticated = computed(() => authStore.isAuthenticated)
     </section>
 
     <section class="features">
-      <h2 class="section-title">Why Choose Us?</h2>
+  <h2 class="section-title">Почему мы?</h2>
       <div class="features-grid">
         <div class="feature-card">
           <div class="feature-icon">🏠</div>
-          <h3 class="feature-title">Wide Selection</h3>
+          <h3 class="feature-title">Большой выбор</h3>
           <p class="feature-description">
-            Browse through hundreds of properties including apartments, houses, 
-            and commercial spaces.
+            Просматривайте сотни объектов: квартиры, дома, коммерческую недвижимость.
           </p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔍</div>
-          <h3 class="feature-title">Advanced Search</h3>
+          <h3 class="feature-title">Расширенный поиск</h3>
           <p class="feature-description">
-            Find exactly what you're looking for with our powerful search 
-            and filter options.
+            Точные фильтры и поиск помогут найти именно то, что вам нужно.
           </p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">❤️</div>
-          <h3 class="feature-title">Save Favorites</h3>
+          <h3 class="feature-title">Сохраняйте избранное</h3>
           <p class="feature-description">
-            Save properties you love and easily access them later from 
-            your favorites list.
+            Сохраняйте понравившиеся объекты и быстро возвращайтесь к ним позже.
           </p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📍</div>
-          <h3 class="feature-title">Location Based</h3>
+          <h3 class="feature-title">По местоположению</h3>
           <p class="feature-description">
-            Search properties by location and find the perfect spot 
-            in your preferred area.
+            Ищите объекты по локации и находите варианты в нужном районе.
           </p>
         </div>
       </div>
     </section>
 
     <section v-if="!isAuthenticated" class="cta">
-      <h2 class="cta-title">Ready to Find Your Perfect Property?</h2>
+      <h2 class="cta-title">Готовы найти идеальную недвижимость?</h2>
       <p class="cta-subtitle">
-        Join thousands of satisfied customers who found their dream homes with us.
+        Присоединяйтесь к тысячам довольных клиентов, которые нашли жильё с нашей помощью.
       </p>
       <RouterLink to="/register" class="btn btn-primary btn-lg">
-        Create Free Account
+        Создать аккаунт бесплатно
       </RouterLink>
     </section>
   </div>

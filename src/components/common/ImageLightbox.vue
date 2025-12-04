@@ -45,7 +45,7 @@ function next() {
 
 const currentSrc = computed(() => props.images[index.value] || null)
 const caption = computed(() => {
-  // try to extract filename or fallback
+  // попытаться извлечь имя файла или использовать запасной вариант
   const img = props.images[index.value]
   return img?.caption || ''
 })

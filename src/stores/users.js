@@ -193,7 +193,7 @@ export const useUsersStore = defineStore('users', () => {
 
     try {
       const response = await usersApi.delete(id)
-      // If API returns deleted entity, remove it; otherwise remove by id
+  // Если API вернул удалённую сущность, удалить её; иначе удалить по id
       const returned = response?.data
       if (returned && returned.id) {
         const idx = users.value.findIndex(u => u.id === returned.id)

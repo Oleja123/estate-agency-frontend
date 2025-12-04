@@ -126,10 +126,11 @@ function applyFilters() {
     return
   }
 
-  if ((latNum !== null && (!Number.isFinite(latNum) || latNum < -90 || latNum > 90)) || (lngNum !== null && (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180))) {
-    propertiesStore.error = 'Координаты некорректны.'
-    return
-  }
+    // Проверка корректности координат
+    if ((latNum !== null && (!Number.isFinite(latNum) || latNum < -90 || latNum > 90)) || (lngNum !== null && (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180))) {
+      propertiesStore.error = 'Координаты некорректны.'
+      return
+    }
 
   // if user provided radius but not coords -> error
   if (radNum !== null && (latNum === null || lngNum === null)) {
@@ -234,7 +235,7 @@ function getImageSrc(property) {
   // Use `property.image` for list cards (per swagger)
   const img = property?.image || null
   if (!img) return null
-  // If backend provided a url field, use it
+  // Если бэкенд предоставил поле url, использовать его
   if (img.url) return img.url
   const data = img.data
   const filename = img.filename || ''
@@ -330,7 +331,7 @@ function openPropertyLightbox(property, start = 0) {
           <div class="filter-group">
             <label class="filter-label">Тип недвижимости</label>
             <select v-model="localFilters.type_id" class="filter-input">
-              <option value="">All Types</option>
+              <option value="">Все типы</option>
               <option
                 v-for="type in propertyTypesStore.propertyTypes"
                 :key="type.id"
@@ -344,7 +345,7 @@ function openPropertyLightbox(property, start = 0) {
           <div class="filter-group">
             <label class="filter-label">Тип сделки</label>
             <select v-model="localFilters.transaction_type" class="filter-input">
-              <option value="">All</option>
+              <option value="">Все</option>
               <option v-for="type in transactionTypes" :key="type" :value="type">
                 {{ txLabel(type) }}
               </option>
@@ -366,7 +367,7 @@ function openPropertyLightbox(property, start = 0) {
           <div class="filter-group">
             <label class="filter-label">Статус</label>
             <select v-model="localFilters.property_status" class="filter-input">
-              <option value="">All</option>
+              <option value="">Все</option>
               <option v-for="status in propertyStatuses" :key="status" :value="status">
                 {{ statusLabel(status) }}
               </option>
@@ -423,8 +424,8 @@ function openPropertyLightbox(property, start = 0) {
               <button type="button" class="btn btn-outline" @click="clearLocation">Очистить</button>
             </div>
             <div style="margin-top:.5rem;display:flex;gap:.5rem;">
-              <input v-model="localFilters.latitude" type="text" class="filter-input" placeholder="Lat" />
-              <input v-model="localFilters.longitude" type="text" class="filter-input" placeholder="Lng" />
+              <input v-model="localFilters.latitude" type="text" class="filter-input" placeholder="Широта" />
+              <input v-model="localFilters.longitude" type="text" class="filter-input" placeholder="Долгота" />
             </div>
             <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
               <input v-model="localFilters.radius_km" type="number" min="0" step="1" class="filter-input" placeholder="Радиус (км)" />
